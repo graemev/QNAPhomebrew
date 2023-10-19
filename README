@@ -1,8 +1,9 @@
 19Oct2023: Graeme Vetterlein. Scripts to allow TS412 to run as a NAS [ :-) ] using minimum (electrical) power.
 So try to spin the disks down, stop the fan, slow the CPU to lowest speed etc.
 
-This makes extensive use of "labels" (filesystem and swap). We assume the (4) trays of the QNAP
-hold different sized disks and there is an external SSD, which is the normal "boot system".
+This makes extensive use of "labels" (filesystem and swap). We assume the (4)
+trays of the QNAP hold different sized disks and there is an external SSD, which
+is the normal "boot system".
 
 So for example Tray1 might hold:
 
