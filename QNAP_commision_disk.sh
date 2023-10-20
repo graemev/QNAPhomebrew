@@ -230,6 +230,8 @@ if (sfdisk -l ${DEV} | grep -q Sectors) ; then
     echo "The disk ${DEV} is not blank, create a blank GPT label (sfdisk, fdisk, parted)" >&2
     echo "This is a sanity check to make sure it's the device you intended." >&2
     exit 1
+else
+    echo "The disk ${DEV} is blank, looks good" >&2
 fi
 
 echo "Last chance to bail out --- press enter to continue" >&2

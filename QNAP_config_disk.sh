@@ -16,88 +16,69 @@ trap 'on_exit' EXIT
 
 
 usage() {
-    cat <<EOF
+    cat >&2 <<EOF
 
 USAGE: 
-       $0 [-v|--verbose][-s <n> | --spindown <n> ] <drive>
+       $0 [-h|--help] [-v|--verbose] {-m|--mode} {fast|medium|powersave} \
+          [--B255] [-t <sec> | --timeout <sec>] [-y|--sleep] <drive>
 
        Configure the drive <drive> so that it spins down if idle for <n>.
 
-       -c | --check passes  The check flag to mkfs (can be specified twice, see mkfs(8) man page
-       -b | --bootorder     Normally sda is boot1, sdb=boot2 , but you may need to override
-       -v | --verbose       More messages (also passed ot mkfs)
-
+       -h | --help          This usage messsage
+       -v | --verbose       More messages 
+       -m | --mode	    power saving/heat profile
+       -y | --sleep	    immediately spin the drive down
+       -t | --timeout	    NOT NORMALLY USED** , allows you to set a very low time until spindown happens
+       --B255		    Workaround for a BUG in some disk firmware (needs -B255 [disable APM] in order for APM to work!)
 
        This script was created on a TS412, with 4 drives installed in trays + 1 eSATA SSD
 
        Tray1=/dev/sda , Tray2=/dev/sdb , Tray3=/dev/sdc , Tray4=/dev/sdd , eSATA/USB ...sde, sdf etc
 
-       If you have only 3 bays populated, the eSATA (Uor USB) would become sdd (not sde)
+       If you have only 3 bays populated, the eSATA (or USB) would become sdd (not sde)
 
+       Powersaving modes:
 
-       Note boot order determines which disk becomes the root filesystem (also
-       usually defines /home /tmp etc) normally tray1(sda) is bootorder1 , tray2 bootorder 2 etc 
+       		   fast - Get the highest performance of the disk. They will never spin down
+		   	  and will be noiser and consume more power
 
-       Normal usage, Trays1-4 have a bootable system on them but an eSATA SSD has the "best one"
-       (because it's silent. So choose 5 or greater for the SSD.
-       
-       So a typical 4 Bay + 1 eSATA would be:
+		   powersave - The disk will spindown if unused for several minutes
+		   	  much quieter and more power efficient, however the inital disk access
+			  follwoing a sleep could be very long.
 
-       TRAY1 = sda = boot1
-       TRAY2 = sdb = boot2
-       TRAY3 = sdc = boot3
-       TRAY4 = sdd = boot4
-       Esata = sde = boot5
+		   medium - Mid way between fast & powersave. The disks can spin down if not
+		   	  used for a long period (e.g overnight) this value is defined by th HDD
+			  so presuably is a "safe" one.
 
-       If you only have 2 bays populated, it proably a good idea to make the eSATA boot5
-       so that you have an upgrade path.
-
-       TRAY1 = sda = boot1
-       TRAY2 = sdb = boot2
-       Esata = sdc = boot5
-
-
-       You need to run this as root.
-
-       Before using this script you need to initialise the disk (fdisk, parted etc) in the NAS
-       or in another computer. This is to ensure we don't destroy data. You should specify a GPT
-       label.
-       
-       This script will create the following (sizes are the defaults):
-
-       Partition#1  => /boot   	   
-       Partition#2  => root (/)
-       Partition#5  => /var
-       Partition#6  => SWAP
-       Partition#7  => /tmp
-       Partition#8  => /home
-       Partition#9  => /data
-       Partition#10 => /rest
-       
-       You don't need to use this script. You don't need to use GPT. You DO need to ensure
-       the minimal filesystems exist and, most importantly, that the labels are correct.
+		   ** A note about timeout. Be aware once set on a disk this value will persist until changed
+		      setting a very low value can be damaging over the long term. You generaly only use this
+		      to test how spindown works, how quite it is, how much power it drawns, is any process
+		      spiing the disk up when you don't expect it.
 EOF
 
 }
 
 
-# Dump of SDE (external SSD)
-#
-# /dev/sde1 : start=        2048, size=     2316289, type=83, bootable
-# /dev/sde2 : start=     2320384, size=    48828417, type=83
-# /dev/sde3 : start=    51150848, size=   886552240, type=5
-# /dev/sde5 : start=    51152896, size=    19529729, type=83
-# /dev/sde6 : start=    70686720, size=     1486849, type=83
-# /dev/sde7 : start=    72177664, size=     3903489, type=83
-# /dev/sde8 : start=    76085248, size=   861617840, type=83
 
 typeset -i verbose
+typeset -i timeout
+typeset -i t
+typeset -i b255bug
+typeset -i sleep
 
-fsflags=""
-bootorder=0
+
+
 verbose=0
+timeout=0
+mode="m"
+umode=""
+t=3600
+b255bug=0
+sleep=0
+
+
 PROG=$0
-ARGS=`getopt -o "chvb:" -l "check,help,verbose,bootorder:" -n "${PROG}" -- "$@"`
+ARGS=`getopt -o "yhvm:t:" -l "sleep,B255,help,verbose,mode:,timeout:" -n "${PROG}" -- "$@"`
 
 #Bad arguments
 if [ $? -ne 0 ];
@@ -112,24 +93,54 @@ eval set -- "$ARGS"
 while true;
 do
     case "$1" in
-	-c|--check) 
-	    fsflags+="-c "
+	-y|--sleep) 
+	    sleep=1
 	    shift;;
 	-v|--verbose) 
 	    verbose+=1
-	    fsflags+="-v "
 	    shift;;
-	-b|--bootorder) 
-	    bootorder=$2
+	-m|--mode) 
+	    umode=$2
+	    shift 2;;
+	-t|--timeout) 
+	    timeout=$2
 	    shift 2;;
 	-h|--help) 
 	    usage ${PROG}
+	    exit 0
+	    shift;;
+	--B255)
+	    b255bug=1
 	    shift;;
 	--)
 	    shift
 	    break;;
     esac
 done
+
+# Curious vulnerability here (mentioned only for education) user could pass a
+# regular expression to -m option and it would ge obeyed here. I don't belive it
+# could cause damage in this case.
+
+if [[ -z "${umode}" ]] ; then
+   echo "Mode must be defined" 2>&2
+    usage ${PROG}
+    exit 1
+fi
+
+
+if   [[ "fast" =~ "${umode}"       || "FAST" =~ "${umode}" ]]      ; then
+    mode="f";
+elif [[ "medium" =~ "${umode}"     || "MEDIUM" =~ "${umode}" ]]    ; then
+    mode="m";
+elif [[ "powersave" =~ "${umode}"  || "POWERSAVE" =~ "${umode}" ]] ; then
+    mode="p";
+else
+    echo "${umode} is not a recognised mode" >&2
+    usage ${PROG}
+    exit 1
+fi
+    
 
 if [[ $# -ne 1 ]] ; then
     usage ${PROG}
@@ -154,69 +165,14 @@ case "${DEV}" in
 	;;
 esac
 
-if [[ ${bootorder} == "0" ]] ; then  # If it wasn't set , define it from Tray No
-    case "${DEV}" in
-	"/dev/sda")
-	    bootorder=1
-	    ;;
-	"/dev/sdb")
-	    bootorder=2
-	    ;;
-	"/dev/sdc")
-	    bootorder=3
-	    ;;
-	"/dev/sdd")
-	    bootorder=4
-	    ;;
-    esac
-fi
-
-if [[ ${bootorder} == "0" ]] ; then  # Then it's proably an external Drive
-    bootorder=5
-fi
-
 
 if [[ ${verbose} -gt 0 ]] ; then
     echo "Verbose mode enabled VERSION=${VERSION}" >&2
 fi
 
 if [[ ! -b ${DEV} ]] ; then
-    echo "${DEV} is not a block device" >&2
+    echo "${DEV} is not a block device (so not a disk)" >&2
     exit 1
-fi
-
-
-
-# You can override these by setting as environment variables
-# One easy way is SIZE_TMP:=  "3000 MiB" QNAP_commision_disk
-
-: ${SIZE_BOOT:="2000MiB"}
-: ${SIZE_ROOT:="24000MiB"}
-: ${SIZE_VAR:="10000MiB"}
-: ${SIZE_TMP:="2000MiB"}
-: ${SIZE_SWAP:="2000MiB"}
-: ${SIZE_HOME:="1GiB"}
-: ${SIZE_DATA:="512GiB"}
-
-
-b=${bootorder}
-
-if [[ ${verbose} -gt 0 ]] ; then
-    cat >&2 <<EOF
-        Will format ${DEV}
-	It will have a bootorder of ${bootorder}
-	It will contain:
-	BOOT${b} = ${SIZE_BOOT}
-	ROOT${b} = ${SIZE_ROOT}
-	VAR${b}  = ${SIZE_VAR}
-	TMP${b}  = ${SIZE_TMP}
-	SWAP     = ${SIZE_SWAP}
-	HOME${b} = ${SIZE_HOME}
-	DATA${b} = ${SIZE_DATA}
-	REST${b} = The remains of the drive
-
-EOF
-
 fi
 
 
@@ -226,63 +182,97 @@ if [[ $(id -u) -ne 0 ]] ; then
     exit 2
 fi
 
-if (sfdisk -l ${DEV} | grep -q Sectors) ; then
-    echo "The disk ${DEV} is not blank, create a blank GPT label (sfdisk, fdisk, parted)" >&2
-    echo "This is a sanity check to make sure it's the device you intended." >&2
-    exit 1
+# hddparm:
+#
+# -B - 1-127 (permit spin‐down) 128-254 (do not permit spin‐down) 255 = turn off Advanced Power Managmewnt
+# -y - spindown right now (if permitted)
+# -S - Spindown time  (complex encoding RTFM)
+#
+
+BFLAG=""
+SFLAG=""
+
+
+
+
+if [[ ${mode} = "f" ]] ; then
+    t=0  # We won't use this value
+    BFLAG="-B 254"
+elif [[ ${mode} = "p" ]] ; then
+    t=3600  # spindown afer 1 hour
+    BFLAG="-B 1"
+elif [[ ${mode} = "m" ]] ; then
+    t=0  # not set
+    BFLAG="-B 127"
 fi
 
-echo "Last chance to bail out --- press enter to continue" >&2
-read reply
+# Notwithstanding the above, if timeout was explicitly set it takes precedence
 
+if [[ ${timeout} -gt 0 ]] ; then
+    t=${timeout}
+fi
 
-echo -e "\n\nBefore:"
-
-sfdisk -l ${DEV}
-
-#cat <<EOF
-sfdisk ${DEV} <<EOF
-${DEV}1 : name=boot${b},  size=${SIZE_BOOT}, type=linux, bootable
-${DEV}2 : name=root${b},  size=${SIZE_ROOT}, type=linux
-
-${DEV}5 : name=var${b},   size=${SIZE_VAR},  type=linux
-${DEV}6 : name=swap${b},  size=${SIZE_SWAP}, type=swap
-${DEV}7 : name=tmp${b},   size=${SIZE_TMP},  type=linux
-${DEV}8 : name=home${b},  size=${SIZE_HOME}, type=linux
-
-${DEV}9 : name=data${b},  size=${SIZE_DATA}, type=linux
-${DEV}10 : name=rest${b},                    type=linux
-
-
-EOF
+if [[ ${b255bug} -gt 0 ]] ; then
+    BFLAG="-B 255"
+fi
 
 
 
+# Workout the SFLAG (not times between 20 and 30 mins cannot be set (!) longest we can set is 5.5 hours
+# Actualy there are acouple of "special times" (21m and 21m15S which can be set, but we ignore)
+# We also ignore the vendor defined period (se we don't know what it is)
 
-echo -e "\n\nAfter:"
+SFLAG=""
+typeset -i x
 
-sfdisk -l ${DEV}
+if [[ ${t} -eq 0 ]] ; then	      # If the user set timeout, all bets are off (we'll just use that)
+    if   [[ ${mode} == "f" ]] ; then  
+	SFLAG="-S 0"  # Turn off spindown
+    elif [[ ${mode} == "m" ]] ; then
+	SFLAG="-S 253"  # Special value uses sleep defined by the vendor
+    fi
+else
+    if   [[ ${t} -le 1200  ]] ; then  # (240 * 5 = 1200) ...so up to 20 minutes
+	t=t/5
+	SFLAG="-S "${t}             # 5 second intervals
+    else                              # (11 * 30 mins = 19800 sec) ...we can't actually set less than 30 min
+	x="t/(30*60)"
+	if   [[ ${x} -lt 1 ]] ; then
+	    x=1
+	elif [[ ${x} -gt 11 ]] ; then # 11 * 30 min = 5.5hrs (19800 sec)
+	    x=11
+	fi
+	x+=240
+	SFLAG="-S ${x}"
+    fi
+fi
 
 
-echo -e "\n\nFormatting:"
+echo -e "\n\n\nBefore we start the disk state is..."
 
-wipefs -a ${DEV}1 
-wipefs -a ${DEV}2 
-wipefs -a ${DEV}5 
-wipefs -a ${DEV}6
-wipefs -a ${DEV}7 
-wipefs -a ${DEV}8 
-wipefs -a ${DEV}9 
-wipefs -a ${DEV}10
+hdparm -B -C -M -rR -Q -W -Aa ${DEV}
 
-echo "BOOT" ; mke2fs -text4 ${fsflags} -Lboot${b} ${DEV}1
-echo "ROOT" ; mke2fs -text4 ${fsflags} -Lroot${b} ${DEV}2
-echo "VAR"  ; mke2fs -text4 ${fsflags} -Lvar${b}  ${DEV}5
-echo "SWAP" ; mkswap -L swap${b} ${DEV}6
-echo "TMP"  ; mke2fs -text4 ${fsflags} -Ltmp${b}  ${DEV}7
-echo "HOME" ; mke2fs -text4 ${fsflags} -Lhome${b} ${DEV}8
-echo "DATA" ; mke2fs -text4 ${fsflags} -Ldata${b} ${DEV}9
-echo "REST" ; mke2fs -text4 ${fsflags} -Lrest${b} ${DEV}10
+echo -e "\n==============================================\n"
+
+cmd="hdparm ${BFLAG} ${SFLAG} ${DEV}"
+
+echo "Running command: ${cmd}"
+
+command ${cmd}
 
 
+if [[ ${sleep} -gt 0 ]] ; then
 
+    if [[ ${verbose} -gt 0 ]] ; then
+	echo -e "\n\nPutting drive to sleep immediately"
+    fi
+
+    hdparm -y ${DEV}
+fi
+
+
+echo -e "\n==============================================\n"
+
+echo -e "\n\n\nAfter we finish start the disk state is..."
+
+hdparm -B -C -M -rR -Q -W -Aa ${DEV}

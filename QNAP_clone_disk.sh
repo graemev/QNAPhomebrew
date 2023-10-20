@@ -204,7 +204,24 @@ ourbootnumber=$(echo ${x} | sed "s/.*by-label\/[a-z]*\([0-9]\).*/\1/")
 # We can't copy to ourselves
 if [[ ${bootorder} -eq ${ourbootnumber} ]] ; then
     echo "Hang on, we are booted with root${ourbootnumber} so we can't copy to root${bootorder}" >&2
+    exit 3
 fi
+
+# $DEV is /root, so partition #2 (normally)
+devname=$(readlink ${DEV})
+base=$(basename ${devname})
+dir=$(dirname ${devname})
+
+typeset -a lookup
+lookup=("zero" "sda2" "sdb2" "sdc2" "sdd2" "sde2") # Starts at tray1=boot1 (we don't use boot0 ...but you could)
+expected=${lookup[$b]}
+
+if [[ ${base} == ${expected} && ${dir} == "../.." ]] ; then
+    echo "Clone is going to ${devname} , this is as expected"
+else
+    echo "WARNING Clone is going to ${devname} , this is as unexpected (you may have chosen irregular mappings)"
+fi
+
 
 if [[ ${verbose} -gt 0 ]] ; then
     cat >&2 <<EOF
@@ -258,7 +275,6 @@ cd /var/log/QNAPHomebrew
 
 #---- BOOT ------------------------------------------------------
 
-
 if [[ ${verbose} -gt 0 ]] ; then
     echo -e "\n\nBOOT:"
 fi
@@ -282,8 +298,6 @@ d=ROOT    # Make sparse files, do delete files not in source
 from=/.
 to=/run/QNAPHomebrew/root
 
-
-
 rsync -aHAXS --one-file-system --log-file=QNAP_clone.${d}.${b}.log  --super  --delete  ${from}  ${to} 2>QNAP_clone.${d}.${b}.errs
 echo "$d Cloned from ${ourbootnumber} using [$PROG $CMD] at $(date)" > ${to}/@CLONED
 
@@ -301,7 +315,6 @@ fi
 d=VAR    # Make sparse files, Don't copy /var/log, do delete files not in source, but don't delete excluded files (/var/log should remain)
 from=/var/.
 to=/run/QNAPHomebrew/var
-
 
 rsync -aHAXS --one-file-system --log-file=QNAP_clone.${d}.${b}.log  --super --exclude=/log --delete  ${from}  ${to} 2>QNAP_clone.${d}.${b}.errs
 echo "$d Cloned from ${ourbootnumber} using [$PROG $CMD] at $(date)" > ${to}/@CLONED
