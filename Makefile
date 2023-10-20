@@ -1,7 +1,7 @@
 TARGETS=QNAP_clone_alldisk QNAP_config_disk QNAP_clone_disk QNAP_commision_disk
 ISCRIPTS=choose-root
 
-ALL:	$(TARGETS)
+ALL:	$(TARGETS) $(ISCRIPTS)
 
 BIN=/usr/local/bin
 INITRAM=/etc/initramfs-tools/scripts/local-top/

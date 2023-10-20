@@ -1,13 +1,15 @@
 #! /bin/bash -ue
 
 # 03Oct23 Inital Version
+# 20Oct23 Added ability to make permanent
 
+TMP1=$(tempfile)
 
 VERSION="0.1"
 
 on_exit() {
     : echo 'ON_EXIT: Cleaning up...(remove tmp files, etc)'
-#    rm -f ${TMP1}
+    rm -f ${TMP1}
 }
 
 trap 'on_exit' EXIT
@@ -20,7 +22,7 @@ usage() {
 
 USAGE: 
        $0 [-h|--help] [-v|--verbose] {-m|--mode} {fast|medium|powersave} \
-          [--B255] [-t <sec> | --timeout <sec>] [-y|--sleep] <drive>
+          [--B255] [-t <sec> | --timeout <sec>] [-y|--sleep] [-p | --permanent] <drive>
 
        Configure the drive <drive> so that it spins down if idle for <n>.
 
@@ -29,6 +31,7 @@ USAGE:
        -m | --mode	    power saving/heat profile
        -y | --sleep	    immediately spin the drive down
        -t | --timeout	    NOT NORMALLY USED** , allows you to set a very low time until spindown happens
+       -p | --permanent	    Persist the changes into  /etc/hdparms.conf
        --B255		    Workaround for a BUG in some disk firmware (needs -B255 [disable APM] in order for APM to work!)
 
        This script was created on a TS412, with 4 drives installed in trays + 1 eSATA SSD
@@ -65,6 +68,7 @@ typeset -i timeout
 typeset -i t
 typeset -i b255bug
 typeset -i sleep
+typeset -i permanent
 
 
 
@@ -75,10 +79,10 @@ umode=""
 t=3600
 b255bug=0
 sleep=0
-
+permanent=0
 
 PROG=$0
-ARGS=`getopt -o "yhvm:t:" -l "sleep,B255,help,verbose,mode:,timeout:" -n "${PROG}" -- "$@"`
+ARGS=`getopt -o "pyhvm:t:" -l "permanent,sleep,B255,help,verbose,mode:,timeout:" -n "${PROG}" -- "$@"`
 
 #Bad arguments
 if [ $? -ne 0 ];
@@ -98,6 +102,9 @@ do
 	    shift;;
 	-v|--verbose) 
 	    verbose+=1
+	    shift;;
+	-p|--permanent) 
+	    permanent+=1
 	    shift;;
 	-m|--mode) 
 	    umode=$2
@@ -119,7 +126,7 @@ do
 done
 
 # Curious vulnerability here (mentioned only for education) user could pass a
-# regular expression to -m option and it would ge obeyed here. I don't belive it
+# regular expression to -m option and it would get obeyed here. I don't belive it
 # could cause damage in this case.
 
 if [[ -z "${umode}" ]] ; then
@@ -175,6 +182,21 @@ if [[ ! -b ${DEV} ]] ; then
     exit 1
 fi
 
+if [[ -L ${DEV} ]] ; then
+    DEV="/dev/"$(basename $(readlink ${DEV}))
+fi
+
+
+
+if [[ "${DEV}" =~ /dev/sd[a-z]* || "${DEV}" =~ /dev/hd[a-z]* ]] ; then
+    DEV=${DEV:0:8}
+    echo "Using ${DEV}"
+else
+    echo "The device name ${DEV} is not usable in hdparms.conf [ needs to be sd? or hd? ]"
+fi
+
+
+
 
 if [[ $(id -u) -ne 0 ]] ; then
     echo "You are $(id -un) you need to su or sudo to root before running this" >&2
@@ -191,19 +213,22 @@ fi
 
 BFLAG=""
 SFLAG=""
-
-
+BVALUE=""
+SVALUE=""
 
 
 if [[ ${mode} = "f" ]] ; then
     t=0  # We won't use this value
     BFLAG="-B 254"
+    BVALUE="254"
 elif [[ ${mode} = "p" ]] ; then
-    t=3600  # spindown afer 1 hour
+    t=3600  # spindown after 1 hour
     BFLAG="-B 1"
+    BVALUE="1"
 elif [[ ${mode} = "m" ]] ; then
     t=0  # not set
     BFLAG="-B 127"
+    BVALUE="127"
 fi
 
 # Notwithstanding the above, if timeout was explicitly set it takes precedence
@@ -214,6 +239,7 @@ fi
 
 if [[ ${b255bug} -gt 0 ]] ; then
     BFLAG="-B 255"
+    BVALUE="255"
 fi
 
 
@@ -223,18 +249,22 @@ fi
 # We also ignore the vendor defined period (se we don't know what it is)
 
 SFLAG=""
+SVALUE=""
 typeset -i x
 
 if [[ ${t} -eq 0 ]] ; then	      # If the user set timeout, all bets are off (we'll just use that)
     if   [[ ${mode} == "f" ]] ; then  
 	SFLAG="-S 0"  # Turn off spindown
+	SVALUE="0"
     elif [[ ${mode} == "m" ]] ; then
 	SFLAG="-S 253"  # Special value uses sleep defined by the vendor
+	SVALUE="253"
     fi
 else
     if   [[ ${t} -le 1200  ]] ; then  # (240 * 5 = 1200) ...so up to 20 minutes
 	t=t/5
 	SFLAG="-S "${t}             # 5 second intervals
+	SVALUE="${t}"
     else                              # (11 * 30 mins = 19800 sec) ...we can't actually set less than 30 min
 	x="t/(30*60)"
 	if   [[ ${x} -lt 1 ]] ; then
@@ -244,6 +274,7 @@ else
 	fi
 	x+=240
 	SFLAG="-S ${x}"
+	SVALUE="${x}"
     fi
 fi
 
@@ -276,3 +307,35 @@ echo -e "\n==============================================\n"
 echo -e "\n\n\nAfter we finish start the disk state is..."
 
 hdparm -B -C -M -rR -Q -W -Aa ${DEV}
+
+if [[ ${permanent} -gt 0 ]] ; then
+    cat <<EOF 
+Not withstanding comments in the files and elesewhere
+The ONLY format for devices is /dev/sd? or /dev/hd?
+see: /usr/lib/pm-utils/power.d/95hdparm-apm and /lib/udev/hdparm
+and since the association of Tray1=sda Tray2=sdb ... is not persistent
+ANY tray1/disk can end up as any device.
+So really you can only have ONE setting and it can apply to any disk.
+EOF
+
+    match=${DEV//\//\\\/}
+
+    # Remove any existing stanza for this disk, add our version at the end.
+    # (it's not essential we remove dead stanza but it will improve performance.)
+    
+    cat > ${TMP1} <<EOF
+/${match}/,/}/ { next }
+ { print }
+ END {
+     print "${DEV} {"
+     print "    apm = ${BVALUE}"
+     print "    spindown_time = ${SVALUE}"
+     print "}"
+ }
+EOF
+    cp /etc/hdparm.conf  /etc/hdparm.conf.old
+    awk  -f ${TMP1}  < /etc/hdparm.conf.old > /etc/hdparm.conf
+
+    echo "Edits made to /etc/hdparm.conf :"
+    diff /etc/hdparm.conf.old  /etc/hdparm.conf
+fi
