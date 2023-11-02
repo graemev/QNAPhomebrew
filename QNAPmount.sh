@@ -1,5 +1,15 @@
 #! /bin/bash
 
+
+#
+# Mounts the "USER DATA" of the NAS. Not the OS related stuff. We
+# specifically DON'T do this in /etc/fstab as we want to come up clean
+# even if some drives are unavailable/ Missing file-systems used in /etc/fstab
+# would drop us into the emergency shell.
+#
+
+
+
 # Where do we put these:
 
 # $ /sbin/showmount -e nas
@@ -50,13 +60,14 @@ export_flags="*"
 
 function do_nonraid() {
     mount=$1; shift
+
+    mkdir -p /QNAP/mounts/${mount}
+    mount /dev/disk/by-label/${mount}  /QNAP/mounts/${mount}
+
     for d in $@
     do
-	mkdir -p /QNAP/mounts/${mount}
-	mount /dev/disk/by-label/${mount}  /QNAP/mounts/${mount}
-	mkdir -p /QNAP/mounts/${mount}/${d}
+	mkdir -p  /QNAP/mounts/${mount}/${d}
 	ln -fs    /QNAP/mounts/${mount}/${d}  /share/${d}
-
 	exportfs  ${export_flags}:/share/${d}
     done
     }
@@ -64,13 +75,13 @@ function do_nonraid() {
 
 function do_raid() {
     mount=$1; shift
+    mkdir -p /QNAP/mounts/${mount}
+    mount /dev/${mount}  /QNAP/mounts/${mount}
+    
     for d in $@
     do
-	mkdir -p /QNAP/mounts/${mount}
-	mount /dev/${mount}  /QNAP/mounts/${mount}
-	mkdir -p /QNAP/mounts/${mount}/${d}
+	mkdir -p  /QNAP/mounts/${mount}/${d}
 	ln -fs    /QNAP/mounts/${mount}/${d}  /share/${d}
-
 	exportfs  ${export_flags}:/share/${d}
     done
     }
@@ -86,6 +97,9 @@ do_nonraid rest1 ${REST1}
 do_nonraid rest2 ${REST2}
 do_nonraid rest3 ${REST3}
 do_nonraid rest4 ${REST4}
+
+# Not in the usual place (we don't want this visible at boot)
+mdadm  --assemble --scan --config /etc/QNAP-mdadm.conf
 
 # Raid share(s)
 do_raid md0 ${RAID0}

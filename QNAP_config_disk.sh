@@ -298,7 +298,7 @@ if [[ ${sleep} -gt 0 ]] ; then
 	echo -e "\n\nPutting drive to sleep immediately"
     fi
 
-    hdparm -y ${DEV}
+    hdparm -Y ${DEV}
 fi
 
 
