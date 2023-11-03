@@ -1,0 +1,10 @@
+# Make our git available (read only) to "doze users"
+[git]
+   comment = Samba server's git
+   read only = no
+   writable = no
+   locking = no
+   path = /share/git
+   guest ok = no
+   browseable = yes
+   force user = nobody

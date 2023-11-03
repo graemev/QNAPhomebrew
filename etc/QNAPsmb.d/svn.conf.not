@@ -1,0 +1,10 @@
+# Make our svn available to "doze users"
+[svn]
+   comment = Samba server's svn
+   read only = no
+   writable = yes
+   locking = no
+   path = /share/svn
+   guest ok = yes
+   browseable = yes
+   force user = nobody

@@ -1,0 +1,10 @@
+# Make our Web available to "doze users"
+[Web]
+   comment = Samba server's Web
+   read only = no
+   writable = yes
+   locking = no
+   path = /share/Web
+   guest ok = yes
+   browseable = yes
+   force user = nobody
