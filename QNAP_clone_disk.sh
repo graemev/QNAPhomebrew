@@ -304,6 +304,12 @@ echo "$d Cloned from ${ourbootnumber} using [$PROG $CMD] at $(date)" > ${to}/@CL
 # Fixup /etc/fstab ...BTW, this is why choosing root3 implies using home3 etc
 sed "s/LABEL=\([a-z]*\)[0-9]/LABEL=\1${b}/"  /etc/fstab  > /run/QNAPHomebrew/root/etc/fstab
 
+# Stop Hibernate/Resume from working (alternatively put the correct UUID)
+# My existing contents of /etc/initramfs-tools/conf.d/resume was (single line):
+# RESUME=UUID=9f4d1dae-eb75-4d30-8914-9864f6476a03
+# Alternate solution
+# echo "RESUME=UUID=$(lsblk -n -o UUID /dev/disk/by-label/root${b})"  > /run/QNAPHomebrew/root/etc/initramfs-tools/conf.d/resume 
+echo "RESUME=NONE"  > /run/QNAPHomebrew/root/etc/initramfs-tools/conf.d/resume 
 
 #---- VAR ------------------------------------------------------
 

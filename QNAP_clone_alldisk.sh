@@ -32,10 +32,10 @@ USAGE:
        So if we are booted with root2 mounted on "/" and boot1-5
        are found., it will call it with the options
 
-       QNAP_clone_disk -q -b1 -q
-       QNAP_clone_disk -q -b3 -q
-       QNAP_clone_disk -q -b4 -q
-       QNAP_clone_disk -q -b5 -q
+       QNAP_clone_disk -q -b1
+       QNAP_clone_disk -q -b3
+       QNAP_clone_disk -q -b4
+       QNAP_clone_disk -q -b5
 
        NB QNAP_clone_disk clones boot,root,var & home
 

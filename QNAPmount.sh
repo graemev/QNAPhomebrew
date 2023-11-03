@@ -67,7 +67,7 @@ function do_nonraid() {
     for d in $@
     do
 	mkdir -p  /QNAP/mounts/${mount}/${d}
-	ln -fs    /QNAP/mounts/${mount}/${d}  /share/${d}
+	ln -fs -T /QNAP/mounts/${mount}/${d}  /share/${d}
 	exportfs  ${export_flags}:/share/${d}
     done
     }
@@ -81,7 +81,7 @@ function do_raid() {
     for d in $@
     do
 	mkdir -p  /QNAP/mounts/${mount}/${d}
-	ln -fs    /QNAP/mounts/${mount}/${d}  /share/${d}
+	ln -fs -T /QNAP/mounts/${mount}/${d}  /share/${d}
 	exportfs  ${export_flags}:/share/${d}
     done
     }

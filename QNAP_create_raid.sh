@@ -184,6 +184,8 @@ disk as 'rebuilding' and starts to read from the 'good' disks, calculate the
 parity and determines what should be on the spare disk and then just writes to
 it.
 
+Upshot is that you may find the array rebuiling for a whole day :-)
+
 EOF
 
 # See: https://www.cyberciti.biz/tips/linux-raid-increase-resync-rebuild-speed.html
