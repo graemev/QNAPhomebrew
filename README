@@ -34,3 +34,8 @@ The scripts:
  QNAP_clone_alldisk.sh			- Calls QNAP_clone_disk.sh to clone to all the "other" drives
  Makefile				- Builds the commands
  choose-root				- copy to /etc/initramfs-tools/scripts/local-top/choose-root to enable multiboot
+
+Documents
+
+README					- This file
+Depends					- Other things required
