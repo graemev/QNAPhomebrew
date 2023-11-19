@@ -1,4 +1,5 @@
-TARGETS=QNAP_clone_alldisk QNAP_config_disk QNAP_clone_disk QNAP_commision_disk
+TARGETS=QNAP_clone_alldisk QNAP_clone_disk QNAP_commision_disk QNAP_config_disk QNAP_create_raid\
+	QNAP_recreate_raid QNAPgensamba QNAPmount QNAPinstalldepends
 ISCRIPTS=choose-root
 
 ALL:	$(TARGETS) $(ISCRIPTS)

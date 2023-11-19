@@ -15,6 +15,8 @@ openssh-server	- secure shell (SSH) server, for secure access from remote machin
 lua5.1		- Simple, extensible, embeddable programming language
 liblua5.1-0	- Shared library for the Lua interpreter version 5.1                
 
+fdisk		- collection of partitioning utilities  
+mdadm		- Tool to administer Linux MD arrays (software RAID)
 mtd-utils	- Memory Technology Device Utilities
 debian-keyring	- GnuPG keys of Debian Developers and Maintainers
 lvm2		- Linux Logical Volume Manager
@@ -23,6 +25,7 @@ gnupg2		- GNU privacy guard - a free PGP replacement (dummy transitional package
 cpufrequtils	- utilities to deal with the cpufreq Linux kernel feature
 usbutils	- Linux USB utilities
 discover	- hardware identification system
+sudo		- Provide limited super user privileges (with LDAP support)
 
 x11-apps	- X applications 
 xauth		- X authentication utility

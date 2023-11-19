@@ -56,10 +56,18 @@ USAGE:
        priority, you need to mount the filesystem with 'init_itable=0'. By
        default it is 10 (for detail please see link below)
 
+       I've fought a long battle to get boot to NOT assemble the RAID array, so
+       we could assemble it via scripts when we do QNAPmount, it's difficult.
+
+       So much effort has gone into ensuring that RAID arrays get assembled by
+       initrd that you need to break a lot of things to prevent it. So I've
+       given up and decided to go with flow. The RAID array will get assembled
+       by initrd using information we store in /etc/mdadm/mdadm.conf
 
 
 
 EOF
+    lsblk -f 
 }
 
 
@@ -195,22 +203,52 @@ sysctl dev.raid.speed_limit_min
 sysctl dev.raid.speed_limit_max
 
 # We want RAID to get recovered ASAP (otherwise the disk can't sleep)
-sysctl -w dev.raid.speed_limit_max 100000
+sysctl -w dev.raid.speed_limit_min=100000
+sysctl -w dev.raid.speed_limit_max=5000000
 
 cat > /etc/sysctl.d/10-QNAPraid.conf <<EOF
 dev.raid.speed_limit_min=100000
 EOF
 
+if [[ ${verbose} -gt 0 ]] ; then
+    echo "Building the array from ${volumes}" >&2
+fi
+
+
+mdadm --verbose --create /dev/md0 --level=5 --raid-devices=${n} ${volumes}
+
+cat > /etc/mdadm/mdadm.conf  <<EOF
+
+# by default (built-in), scan all partitions (/proc/partitions) and all
+# containers for MD superblocks. alternatively, specify devices to scan, using
+# wildcards if desired.
+#DEVICE partitions containers
+
+# automatically tag new arrays as belonging to the local system
+HOMEHOST <system>
+
+# instruct the monitoring daemon where to send mail alerts
+MAILADDR root
+
+# definitions of existing MD arrays
+
+# This configuration was auto-generated on Sun, 30 Jul 2023 22:58:30 +0100 by mkconf
+
+EOF
+
+mdadm --detail --scan  >> /etc/mdadm/mdadm.conf
 
 
 
-echo "mdadm --verbose --create /dev/md0 --level=5 --raid-devices=${n} ${volumes} "
+if [[ ${verbose} -gt 0 ]] ; then
+    echo "Putting an ext4 filesystem on /dev/mt0 (the  Raid Array)" >&2
+fi
 
 
 
 # See: https://superuser.com/questions/784606/forcing-ext4lazyinit-to-finish-its-thing
 EXTENDED_EXT4_OPTIONS="lazy_itable_init=0"  # Do the whole job now, otherwise the disk stays spun up for days
 
-echo "mkfs -v -text4 -E ${EXTENDED_EXT4_OPTIONS} /dev/md0"
+mkfs -v -text4 -E ${EXTENDED_EXT4_OPTIONS} /dev/md0
 
-echo "mdadm --detail --scan  > /etc/QNAP-mdadm.conf"
+cat /proc/mdstat
