@@ -98,8 +98,21 @@ do_nonraid rest2 ${REST2}
 do_nonraid rest3 ${REST3}
 do_nonraid rest4 ${REST4}
 
+# Actually its is in the usual place, fought long and hard to keep mdadm(8) stuff off initrd
+# Gave up , now it gets assemebed on initrd (slowing boot and meaning you need to reflash
+# more frequently. (/etc/mdadm/mdadm.conf)
 # Not in the usual place (we don't want this visible at boot)
-mdadm  --assemble --scan --config /etc/QNAP-mdadm.conf
+# mdadm  --assemble --scan --config /etc/QNAP-mdadm.conf
+
+
+state=$(mdadm -D /dev/md0 | grep "State  *:")
+
+if [[ ${state} =~ .*degraded.* ]] ; then
+    echo "Warning the array md0 is running degraded" >&2
+    echo "use mdadm -D /dev/md0, cat /proc/mdstat, then mdadm -a /dev/xxxx /dev/md0 to recover" >&2
+fi
 
 # Raid share(s)
 do_raid md0 ${RAID0}
+
+systemctl start QNAP_manage_disks # Make the disks spindown after 1 hour unused.

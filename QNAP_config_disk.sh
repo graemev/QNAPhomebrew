@@ -3,6 +3,7 @@
 # 03Oct23 Inital Version
 # 20Oct23 Added ability to make permanent
 # 03Nov23 Added testing mode, made power saving less aggressive, support muitiple drives
+# 05Dec23 Given the NOTES below, switching to -B128 and use a script to spindown disks every hour (if unused)
 
 # Notes on MY drives:
 #
@@ -40,7 +41,7 @@ usage() {
 
 USAGE: 
        $0 [-h|--help] [-v|--verbose] {-m|--mode} {fast|medium|powersave} \
-          [--B255] [-t <sec> | --timeout <sec>] [-y|--sleep] [-p | --permanent] <drive>
+          [--B255] [-t <sec> | --timeout <sec>] [-y|--sleep] [-p | --permanent] <drive>*
 
        Configure the drive <drive> so that it spins down if idle for <n>.
 
@@ -68,7 +69,7 @@ USAGE:
 			  follwoing a sleep could be very long.
 
 		   medium - Mid way between fast & powersave. The disks can spin down if not
-		   	  used for a long period (e.g overnight) this value is defined by th HDD
+		   	  used for a long period (e.g overnight) this value is defined by the HDD
 			  so presuably is a "safe" one.
 
 		   testing - Sets the most agressive power saving. Useful while you'll
@@ -241,19 +242,19 @@ do
     SVALUE=""
 
 
-    if [[ ${mode} = "f" ]] ; then
+    if [[ ${mode} = "f" ]] ; then  #fast
 	t=0  # We won't use this value
 	BFLAG="-B 254"
 	BVALUE="254"
-    elif [[ ${mode} = "p" ]] ; then
+    elif [[ ${mode} = "p" ]] ; then #powersave
 	t=3600  # spindown after 1 hour
 	BFLAG="-B 127"    # TBD Allow spindown, but don't set it too agressive (1 was spinning down during boot!)
 	BVALUE="127"
-    elif [[ ${mode} = "m" ]] ; then
+    elif [[ ${mode} = "m" ]] ; then #medium
 	t=0  # not set
-	BFLAG="-B 127"
-	BVALUE="127"
-    elif [[ ${mode} = "t" ]] ; then
+	BFLAG="-B 128"     # TBD Disallow spindown [in theory]
+	BVALUE="128"
+    elif [[ ${mode} = "t" ]] ; then # testing
 	t=30  # spindown after 30 seconds
 	BFLAG="-B 1"
 	BVALUE="1"
@@ -274,7 +275,7 @@ do
 
     # Workout the SFLAG (not times between 20 and 30 mins cannot be set (!) longest we can set is 5.5 hours
     # Actualy there are acouple of "special times" (21m and 21m15S which can be set, but we ignore)
-    # We also ignore the vendor defined period (se we don't know what it is)
+    # We also ignore the vendor defined period (since we don't know what it is)
 
     SFLAG=""
     SVALUE=""

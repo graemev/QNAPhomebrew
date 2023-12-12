@@ -1,23 +1,42 @@
 #! /bin/bash -ue
 
-: ${DIR:=/tmp}
+: ${DIR:=/var/opt/homebrew}
+: ${HOMEBREW:=/var/opt/homebrew}
 
+# Use dl_flash_kernel.sh to make mtd1 amd mtd2 in /var/opt/homebrew/
 
-# make e.g. F_TS-412-MOUICHE_BOOKWORM-dl (suitabl for diskless/flashless boot)
+dl_flash_kernel "$@"
+
+if [[ $? -ne 0 ]] ; then
+    echo "Something when wrong making mtd1 and mtd2, check for errors above .. bailing" >&2
+    exit 2
+fi
+
+while [[  $# -gt 0 &&  $1 =~ ^-  ]]
+do
+    shift  # ignore flags in the args (they were just for dl_flash_kernel)
+done
+
+if [[ $# -gt 0 ]] ; then
+    kvers=$1
+else
+    echo "Latest version"
+    kvers=$(linux-version list | linux-version sort | tail -1)
+fi
+
+# make e.g. dl-F_TS-412-MOUICHE_BOOKWORM_6.1.0-13-marvell (suitable for diskless/flashless boot)
 
 . /etc/os-release 
 echo $VERSION_CODENAME
 
-KERNEL=$(uname -r)
-
-NAME="dl-F_TS-412-MOUICHE_${VERSION_CODENAME}_${KERNEL}"
+NAME="dl-F_TS-412-MOUICHE_${VERSION_CODENAME}_${kvers}"
 
 
 TARGET=${DIR}/${NAME}
 
 
-K_FILE=/boot/vmlinuz-${KERNEL}
-I_FILE=/boot/initrd.img-${KERNEL}
+K_FILE=${HOMEBREW}/mtd1
+I_FILE=${HOMEBREW}/mtd2
 
 typeset -i k_size
 typeset -i i_size
@@ -55,5 +74,3 @@ dd if=${I_FILE} of=${TARGET}  bs=1M conv=nocreat oseek=3  # initrd (compressed) 
 
 
 exit 0
-
- 
