@@ -77,6 +77,7 @@ ARGS=`getopt -o "p:hvV" -l "partition:,help,verbose,version" -n "${PROG}" -- "$@
 
 n=4
 partition=""
+devices=""
 
 typeset -i count
 typeset -i i
@@ -159,6 +160,7 @@ do
    volume="/dev/${drives[i]}${partition}"
     if [[ -b ${volume} ]] ; then
 	volumes+="${volume} "
+	devices+="${drives[i]}${partition} "
     else
 	echo "Device ${volume} does not exist" >&2
 	failed="yes"
@@ -214,8 +216,13 @@ sysctl dev.raid.speed_limit_min
 sysctl dev.raid.speed_limit_max
 
 # We want RAID to get recovered ASAP (otherwise the disk can't sleep)
-sysctl -w dev.raid.speed_limit_min=100000
-sysctl -w dev.raid.speed_limit_max=5000000
+# However choosing a high settting may be an issue. I had flash-kernel fail while md0 was in recovery
+#
+# I had dev.raid.speed_limit_min=100000 + dev.raid.speed_limit_max=5000000 used 75+% in process md0_raid5 
+#
+sysctl -w dev.raid.speed_limit_min=1000
+sysctl -w dev.raid.speed_limit_max=2000000
+
 
 cat > /etc/sysctl.d/10-QNAPraid.conf <<EOF
 dev.raid.speed_limit_min=100000
@@ -249,7 +256,7 @@ EOF
 
 mdadm --detail --scan  >> /etc/mdadm/mdadm.conf
 
-
+echo "$devices"  > /var/opt/homebrew/md0-devices
 
 if [[ ${verbose} -gt 0 ]] ; then
     echo "Putting an ext4 filesystem on /dev/mt0 (the  Raid Array)" >&2

@@ -1,0 +1,7 @@
+[Unit]
+Description=Make all the QNAPhomebrew filesystems avaiable (NFS & SAMBA)
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/bin/bash -c 'QNAPmount' && echo 'QNAPmount completed'
