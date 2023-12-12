@@ -1,4 +1,4 @@
-Package required:
+Package required:  apt-cache search ^package-name$
 
 
 nfs-kernel-server - support for NFS kernel server
@@ -29,6 +29,8 @@ sudo		- Provide limited super user privileges (with LDAP support)
 
 x11-apps	- X applications 
 xauth		- X authentication utility
+
+smartmontools   - control and monitor storage systems using S.M.A.R.T.
 
 
 

@@ -32,6 +32,8 @@ apt-get -y install usbutils
 apt-get -y install discover
 apt-get -y install sudo
 
+apt-get -y install smartmontools
+
 
 apt-get -y install x11-apps
 apt-get -y install xauth
