@@ -6,9 +6,13 @@ myhdparm_LDADD=-Llib -lhdparm
 myhdparm_LDFLAGS=-Wl,-rpath=lib
 
 QNAP_manage_disks_SOURCES=QNAP_manage_disks.c
-QNAP_manage_disks_CPPFLAGS=-I$(top_srcdir) $(LIB_CPPFLAGS)
+QNAP_manage_disks_CPPFLAGS=-I$(top_srcdir) $(LIB_CPPFLAGS) -Wall
 QNAP_manage_disks_LDADD=-Llib -lhdparm
 QNAP_manage_disks_LDFLAGS=-Wl,-rpath=lib
 
 SUBDIRS=lib
 dist_doc_DATA=README
+
+#@GENERATE_CHANGELOG_RULES@
+#CHANGELOG_START = 0.2.3^
+#dist-hook: dist-ChangeLog

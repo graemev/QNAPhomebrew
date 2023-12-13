@@ -1,1 +1,12 @@
-No news is good news
+12Dec2023
+
+This is the first version of the "C" version of QNAP_manage_disks disks. It is
+designed to be a like for like replacement for the bash shell script version.
+It should produce better logging. Its main USP however is does not invoke (many)
+other programs, which the shell version obviously does. This should help avoid
+waiting any sleeping disks to search for binary programs.
+
+It includes a shared object "libhdparm.so" which is taken basically unchanged
+from the hdparm package and made into a shared library.
+
+
