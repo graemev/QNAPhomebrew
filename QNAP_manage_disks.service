@@ -8,6 +8,5 @@ Restart=on-failure
 StandardOutput=journal+console
 StandardError=journal+console
 
-
 [Install]
 WantedBy=multi-user.target

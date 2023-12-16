@@ -44,3 +44,4 @@ apt-get -y remove plymouth
 apt-get -y remove openjdk-17-jre-headless
 
 apt-get -y autoremove
+apt-get -y pandoc

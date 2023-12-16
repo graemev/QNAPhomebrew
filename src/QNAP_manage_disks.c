@@ -16,7 +16,7 @@
  */
 
 #ifndef VERSION
-#define VERSION "0.2"
+#define VERSION "0.4"
 #endif
 
 #include <errno.h>
@@ -45,6 +45,11 @@
 #include <linux/types.h>
 #include <scsi/sg.h>
 
+#include <signal.h>
+
+/* Note all output is sent to stderr, there seems to be a systemd bug, StandardError=journal+console seems to be ignored */
+
+
 /* These are just copied directly from the hdparm package. This is pretty poor
    show, they should be installed somewhere */
 
@@ -71,10 +76,8 @@ static char * str_disk_state(int state) {
 	default:
 	case IS_UNKNOWN : s="UNKNOWN"     ;
 	}
-	return(s);  /* safe as we return only value (a pointer) and string are CONST+static */
+	return(s);  /* safe as we return only VALUE (a pointer) and string are CONST+static */
 }
-       
-
 
 /* Possible disk actions ... */
 
@@ -87,12 +90,19 @@ static char * str_disk_action(int action) {
 	switch(action) {
 
 	case NO_ACTION  : s="No Action"  ; break;
-	case STOP_SPIN  : s="Spindown"  ; break;
+	case STOP_SPIN  : s="Spindown"   ; break;
 	default		: s="Unknown"    ;
 	}
 	return(s);  /* safe as we return only value (a pointer) and string are CONST+static */
 }
-       
+
+/* not threadsafe */
+static char * myctime(time_t * timestamp) {
+	struct tm   time_struct;
+	static char buffer[32];
+	(void)strftime(buffer, 32,"%F-%T%z  ",localtime_r(timestamp, &time_struct));          /* starttime */
+return buffer;
+}
 
 #define MAX_DISKS 10
 
@@ -112,6 +122,15 @@ static const char sdj[]="sdj";
 
 
 struct names {const char * const  longname; const char * const shortname;};
+
+/* All the "friendly names" which might be used to refer to a disk
+ *
+ * There is a little less here than meets the eye. QNAP seem quite consistent
+ * tray1 is normally sda , tray2 sdb etc (this is not the case in most Desktop
+ * PCs) however if you unplug and plug in drives the names can end up in almost
+ * any order so these names are simply the "common names". If you need to which
+ * disk is which use the labels.
+ */
 
 static	struct names names[]={
 	{"/dev/sda","sda"},
@@ -156,9 +175,7 @@ static	bool debug         = false;
 static	bool notemperature = false;
 static	bool dryrun        = false;
 
-
-
-static char  kernel[64];  /* annoyingly length is undefined */
+static  char kernel[64];  /* annoyingly length is undefined */
 
 struct datum {
 	int	state;   /* eg spinning or not */
@@ -169,19 +186,48 @@ struct datum {
 };
 
 struct datapoint {
-	time_t	timestamp;
+	time_t	      timestamp;
 	struct datum *data; /* array , one per disk */
 };
 
 /* Arrays of unchanging data. The names of the disks, the names of the
    temperature sensors and the name of the IO stats "file" */
 
+/* In an annoying twist, it turns out reading the drive temperate (DRIVETEMP) on some drives is not "SAFE".
+ * See: https://forum.qnap.com/viewtopic.php?t=172733, there seem to be no way to predict which drives
+ * are affected. So -T -nodrivetemperature has been extended to allow -Tsda,tray3 -nodrivetemperature=tray4,sdc
+ */
+
 const char *disks[MAX_DISKS]	   = {NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL};
+bool        temps[MAX_DISKS]	   = {false,false,false,false,false,false,false,false,false,false}; /* do we read the temp1 sensor */
+
 char      **sensors;
 char      **stats;
 
 char	   *prog;
 
+/* Key heap allocated data to be passed to the signal handlers */
+struct  {
+	int	          max_samples;
+	int	          no_disks;
+	struct datapoint *alldata;
+} sigdata = {0,0,NULL};
+
+
+/* Used in parsing args 'is disk in the list of disks supplied on --notemperature=xxx option? */
+static bool is_nt_disk(const char *disk, const char *ntdisks[]) {
+
+  int	i;
+  bool  match = false;
+  
+  for (i=0; i<MAX_DISKS && ntdisks[i]; ++i) {
+    if (strcmp(disk, ntdisks[i])==0) {
+      match=true;
+      break;
+    }
+  }
+  return match;
+}
 
 /* get the shortname (sda, sdb,sdc etc) for the drive name passed */
 static const char *getname(const char* string) {
@@ -199,26 +245,28 @@ static const char *getname(const char* string) {
 
 static void usage(const char *prog) {
 
-	fprintf(stderr, 
-		"USAGE: %s [-V|--version]\n"
-		"\t\t[-T|--notemperature]\n"
-		"\t\t[{-s|--sleep} <seconds>]\n"
-		"\t\t[{-v|--verbose}]\n"
-		"\t\t[{-d|--debug}]\n"
-		"\t\t[{-l|--logevery} <n>]\n"
-		"\t\t[-n|--dry-run]\n"
-		"\t\t[-h|--help]\n"
-		"\t\t<drive>*\n"
-		"\t\t\n"
-		"\t\t-V|--version		- Just print version No and then exit\n"
-		"\t\t-T|-notemperature    - Don't attempt to monitor disk temperature\n"
-		"\t\t-s|--sleep <seconds> - default 3600 , wake up after this many seconds and take action\n"
-		"\t\t-v|--verbose}	- be verbose, normally we report very little\n"
-		"\t\t-l|--logevery	- default 24 Write (to log) every n wakups (e.g. once a day)\n"
-		"\t\t-n|--dry-run		- Don't actually spin down the disks, just log\n"
-		"\t\t<drive>*		- list of drives to be managed.\n",
-		prog
-		);
+        fprintf(stderr, 
+                "USAGE: %s [-V|--version]\n"
+                "\t\t[{-T|--notemperature}=<comma seperated drives*> ]\n"
+                "\t\t[{-s|--sleep} <seconds>]\n"
+                "\t\t[{-w|--warn} <Number of spindowns>]\n"
+                "\t\t[{-v|--verbose}]\n"
+                "\t\t[{-d|--debug}]\n"
+                "\t\t[{-l|--logevery} <n>]\n"
+                "\t\t[-n|--dry-run]\n"
+                "\t\t[-h|--help]\n"
+                "\t\t<drive>*\n"
+                "\t\t\n"
+                "\t\t-V|--version         - Just print version No and then exit\n"
+                "\t\t-T|-notemperature    - Don't attempt to monitor disk temperature\n"
+                "\t\t-s|--sleep <seconds> - default 3600 , wake up after this many seconds and take action\n"
+                "\t\t-w|--warn <spindowns>- default logevery-1, warn if we spindown a drive this many times or more\n"
+                "\t\t-v|--verbose}        - be verbose, normally we report very little\n"
+                "\t\t-l|--logevery        - default 24 Write (to log) every n wakups (e.g. once a day)\n"
+                "\t\t-n|--dry-run         - Don't actually spin down the disks, just log\n"
+                "\t\t<drive>*             - list of drives to be managed.\n",
+                prog
+                );
 }
 
 /* e.g.: /sys/block/${disk}/stat */
@@ -276,9 +324,9 @@ static char * getkernel() {
 
 /* find out if disk is spinning ... based on code taken from hdparm */
 int get_disk_state(const char disk[]) { /* just sda or sdb etc */   /* TBD */
-	int rc;
+	int  rc;
 	char devicename[16];
-	int	fd;
+	int  fd;
 	
 	__u8 args[4] = {ATA_OP_CHECKPOWERMODE1,0,0,0};
 
@@ -347,12 +395,9 @@ static void capture_datapoint(int no_disks, const char *drives[], struct datapoi
 
 	int rio, rm, rs, rt, wio, wm, ws, wt, iff, iot, tiq, dio, dm, ds, dt;
 
-	int temp;
-
-	FILE  *f;
-
-	char   buffer[256];
-
+	int     temp;
+	FILE   *f;
+	char    buffer[256];
 	int	i;
 	struct datum  *pdata;   /* array of datum    */
 	struct datum  *pdatum;  /* instance of datum */
@@ -376,7 +421,7 @@ static void capture_datapoint(int no_disks, const char *drives[], struct datapoi
 		pdatum->writes = ws;						/* WRITES*/
 		fclose(f);
 
-		if (notemperature)
+		if (notemperature || temps[i])  /* We don't take the temperature of this drive */
 			pdatum->temp = 0;
 		else {
 			if (NULL==(f=fopen(sensors[i], "r")))  /* eg /sys/block/sdc/device/hwmon/hwmon3/temp1_input  */
@@ -388,13 +433,13 @@ static void capture_datapoint(int no_disks, const char *drives[], struct datapoi
 				    fclose(f);
 			    }
 		}
-
 	}
 }
 
 /*
- * Since we never spin a disk up, if the disk is sleeping (IS_STANDBY) the we do nothing.
- * Otherwise if the current{read/write} == prev(read/write) we choose to spin it down
+ * Since we never spin a disk UP, if the disk is sleeping (IS_STANDBY) then we
+ * do nothing.  Otherwise if the current{read/write} == prev(read/write) we
+ * choose to spin it down
  *
  * FUTURE ENHANCEMENT. Allow each disk a (different) grace period, so only
  * spindown after 2 or 3 no-IO samples. This would allow different strategies
@@ -403,27 +448,42 @@ static void capture_datapoint(int no_disks, const char *drives[], struct datapoi
  * IO for 5 minutes (meaning backups are over) another that gets used ad-hoc
  * during the day then not at all at night, we may want to wait a couple of
  * hours to be sure people were finished for the day.
+ *
+ * Suggested syntax sda.3 (sleep after 3 no-IO samples)
  */
 
 static void action_data(int no_disks, struct datapoint *pprev, struct datapoint *pcurrent) {
 
 	int i;
-
+	struct datum  *pdatum;  /* instance of datum */
+	
 	for (i=0; i<no_disks; ++i) {
-		if (pcurrent->data[i].state == IS_STANDBY) {
-			pcurrent->data[i].action = NO_ACTION;
+
+		pdatum = &(pcurrent->data[i]);
+		
+		if (pdatum->state == IS_STANDBY) {
+			pdatum->action = NO_ACTION;
 		}
 
-		else if ((pcurrent->data[i].reads  == pprev->data[i].reads) &&
-			 (pcurrent->data[i].writes == pprev->data[i].writes)) {
-			pcurrent->data[i].action = STOP_SPIN;
+		else if ((pdatum->reads  == pprev->data[i].reads) &&
+			 (pdatum->writes == pprev->data[i].writes)) {
+			pdatum->action = STOP_SPIN;
 			spindown_disk(disks[i]);
 		}
+
+		if (verbose)
+			fprintf(stderr, "Disk %s %dC (%s), action=%s, reads=%ld, writes=%ld\n",
+				disks[i],
+				pdatum->temp/1000,
+				str_disk_state(pdatum->state),
+				str_disk_action(pdatum->action),
+				pdatum->reads, pdatum->writes);
+
 	}
 }
 
-/* TBD a complicated report on what we did */
-void	print_summary(int no_samples, int no_disks, struct datapoint *alldata) {
+/* A complicated report on what we did (typically once a day) */
+void	print_summary(int no_samples, int warn, int no_disks, struct datapoint *alldata) {
 	
 	int sample;
 	int disk;
@@ -439,11 +499,9 @@ void	print_summary(int no_samples, int no_disks, struct datapoint *alldata) {
 	int	      sleep_count[MAX_DISKS]; /* Number of times we put the disk to sleep (should be low) */
 	int	      high_C[MAX_DISKS];      /* high temperature */
 	int	      low_C[MAX_DISKS];       /* low temperature */
-
-	
 	
 	if (debug) {
-		fprintf(stderr, "\n\nDEBUG: alldata %d samples each with %d disks:\n", no_samples, no_disks);
+		fprintf(stderr, "\n\nDEBUG: alldata@%p has %d samples each with %d disks:\n", alldata, no_samples, no_disks);
 
 		for (sample=0; sample<no_samples; ++ sample) {
 			fprintf(stderr, "DEBUG: sample %d datapoint %p:\n", sample, alldata+sample);
@@ -461,17 +519,16 @@ void	print_summary(int no_samples, int no_disks, struct datapoint *alldata) {
 	}
 
 	if (verbose) {
-		printf("%s: %d samples %d disks (1st sample not shown)\n"   , prog, no_samples, no_disks);
+		fprintf(stderr, "%s: %d samples %d disks (1st sample not shown)\n"   , prog, no_samples, no_disks);
 		for (sample=1; sample<no_samples; ++ sample) {
 			(void)strftime(buffer, 32,"%F-%T%z  ",localtime_r(&(alldata[sample].timestamp), &timestamp));
 
-			printf("@ %s: \n", buffer );
+			fprintf(stderr, "@ %s: \n", buffer );
 			ad = alldata[sample].data;  prev_ad = alldata[sample-1].data;
 			for (disk=0; disk<no_disks; ++disk) {
 				d=ad+disk; prev_d=prev_ad+disk;
-				printf("    Disk %s was in state %s its temperature was %d C, we decided to %s "
-				       "it had done %ld reads and %ld writes since prev sample\n",
-				       disks[disk], str_disk_state(d->state), d->temp/1000, str_disk_action(d->action),
+				fprintf(stderr, "    Disk %s %dC (%s) => %s %ld reads, %ld writes this sample\n",
+				       disks[disk], d->temp/1000, str_disk_state(d->state), str_disk_action(d->action),
 				       d->reads-prev_d->reads,d->writes-prev_d->writes);
 			}
 		}
@@ -493,24 +550,68 @@ void	print_summary(int no_samples, int no_disks, struct datapoint *alldata) {
 		}
 	}
 
-
 	(void)strftime(buffer, 32,"%F-%T%z  ",localtime_r(&(alldata[0].timestamp), &timestamp));          /* starttime */
-	printf("Between %s and ",  buffer);
+	fprintf(stderr, "Between %s and ",  buffer);
 	(void)strftime(buffer, 32,"%F-%T%z  ",localtime_r(&(alldata[no_samples-1].timestamp), &timestamp)); /* endtime */
-	printf("%s %d samples: ",  buffer, no_samples);
+	fprintf(stderr, "%s %d samples: ",  buffer, no_samples);
 	
 	for (disk=0; disk<no_disks; ++disk) {
-		printf(" %s stopped %d times",  disks[disk], sleep_count[disk]);
+
+		if (sleep_count[disk] >= warn)
+			fprintf(stderr, "*WARNING*: %s was spundown %d times, either actively is higher than expected or you should not monitor this drive\n",
+				disks[disk], sleep_count[disk]);
+		else
+			fprintf(stderr, " %s stopped %d times",  disks[disk], sleep_count[disk]);
+
 
 		if (notemperature)
-			printf(" its temperature was not measured");
+			fprintf(stderr, " its temperature was not measured");
 		else
-			printf(" Temp %dC-%dC", low_C[disk]/1000, high_C[disk]/1000);
+			fprintf(stderr, " Temp %dC-%dC", low_C[disk]/1000, high_C[disk]/1000);
 	}
-	printf("\n");
+
+	
+	
+	fprintf(stderr, "\n");
 }
 
-/* load the required kernel module */
+static void dump_status(int no_samples, int no_disks, struct datapoint *alldata)  {
+		
+	int sample;
+	int disk;
+	struct datum *ad;  /* array of datum */
+	struct datum *d;   /* single datum   */
+
+	struct datum *prev_ad;  /* array of datum */
+	struct datum *prev_d;   /* single datum   */
+
+	time_t	      timestamp;
+	struct tm     time_struct;
+	char          buffer[32];
+
+	fprintf(stderr, "%s: up to %d samples %d disks (1st sample not shown)\n"   , prog, no_samples, no_disks);
+
+	for (sample=1; sample<no_samples; ++ sample) {
+		if ((timestamp=alldata[sample].timestamp) == 0)
+			break;
+
+		(void)strftime(buffer, 32,"%F-%T%z  ",localtime_r(&timestamp, &time_struct));
+		fprintf(stderr, "@ %s: \n", buffer );
+		ad = alldata[sample].data;  prev_ad = alldata[sample-1].data;
+		for (disk=0; disk<no_disks; ++disk) {
+			d=ad+disk; prev_d=prev_ad+disk;
+			fprintf(stderr, "    Disk %s was in state %s its temperature was %d C, we decided to %s "
+			       "it had done %ld reads and %ld writes since prev sample\n",
+			       disks[disk], str_disk_state(d->state), d->temp/1000, str_disk_action(d->action),
+			       d->reads-prev_d->reads,d->writes-prev_d->writes);
+		}
+	}
+
+
+}
+
+
+/* Load the required kernel module */
 static int load_drivetemp() {
 
 	int rc=0;
@@ -519,13 +620,26 @@ static int load_drivetemp() {
 	// Also man  finit_module(2)
 	// But modprobe(8) does a lot of dependency checking that is good to do
 	// So we only do this right at the start...this is not a function that needs calling more than once
-	// (OK it's possible if somebody is messing with unloading module but that's going to break stuff)
+	// (OK it's possible if somebody is messing with unloading modules but that's going to break stuff)
 
 	if (system("modprobe drivetemp") != 0) {
 		fprintf(stderr, "%s: problems with 'modprobe drivetemp',  carrying on, we may hit problem later\n", prog);
 		rc=-1;
 	}
 	return rc;
+}
+
+void
+quit_handler(int signo)
+{
+	dump_status(sigdata.max_samples, sigdata.no_disks, sigdata.alldata);
+	_exit(EXIT_SUCCESS);
+}
+
+void
+query_handler(int signo)
+{
+	dump_status(sigdata.max_samples, sigdata.no_disks, sigdata.alldata);
 }
 
 
@@ -535,6 +649,7 @@ int main(int argc, char **argv)
 	bool version       = false;
 	int  sleep_time    = 3600;
 	int  logevery      = 24;
+	int  warn          = 0;
 	
 	int  i;
 	int  j;
@@ -546,36 +661,42 @@ int main(int argc, char **argv)
 	struct datapoint *alldata;  /* actually an array of datapoints */
 	
 	prog=argv[0];
+
+	char *ntdiskopt=NULL;		
+
+	time_t now,next_wakeup,next_summary;
 	
 	while (1) {
 		struct option long_options[] = {
 			{"version",		no_argument,       0, 'V' },
-			{"notemperature",	no_argument,       0, 'T' },
+			{"notemperature",	optional_argument, 0, 'T' },
 			{"help",		no_argument,       0, 'h' },
 			{"dry-run",		no_argument,       0, 'n' },
 			{"verbose",		no_argument,       0, 'v' },
 			{"debug",		no_argument,       0, 'd' },
 			{"sleep",		required_argument, 0, 's' },
+			{"warn",		required_argument, 0, 'w' },
 			{"logevery",		required_argument, 0, 'l' },
 			{0, 0, 0, 0}
 		};
 
-		int opt = getopt_long(argc, argv, "VThnvds:l:", long_options, NULL);
-
+		int   opt = getopt_long(argc, argv, "VT::hnvds:w:l:", long_options, NULL);
+		
 		if (opt == -1)
 			break;
 
 		switch (opt)
 			{
-			case 'V': version=true;		break;
-			case 'T': notemperature=true;	break;
-			case 'v': verbose=true;		break;
-			case 'd': debug=true;		break;
-			case 'h': help=true;            break;
-			case 'n': dryrun=true;		break;
-			case 's': sleep_time=atoi(optarg);break;
-			case 'l': logevery=atoi(optarg);  break;
-			case '?':                         break;
+			case 'V': version=true;				break;
+			case 'T': notemperature=true; ntdiskopt=optarg;	break;
+			case 'v': verbose=true;				break;
+			case 'd': debug=true;				break;
+			case 'h': help=true;				break;
+			case 'n': dryrun=true;				break;
+			case 's': sleep_time=atoi(optarg);		break;
+			case 'w': warn=atoi(optarg);			break;
+			case 'l': logevery=atoi(optarg);		break;
+			case '?':					break;
 			}
 	}
 
@@ -598,6 +719,11 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
+	if (warn == 0) {
+		warn=logevery-1;  /* with 24 samaples only 23 can have an action (spindown) */
+	}
+	
+	
 	for (i=0,j=0; i<argc; ++i) {
 		if (j>=MAX_DISKS) {
 			fprintf(stderr, "Too many disk arguments\n");
@@ -613,6 +739,49 @@ int main(int argc, char **argv)
 	
 	no_disks = j;
 
+	if (ntdiskopt) {  /* -Tsda,sdb or -notemperature=sdc,tray2 ....not just -T or -notemperature=sdc,tray2 */
+
+	  char       *p;
+	  const char *q;
+	  int         i;
+
+	  const char       *ntdisks[MAX_DISKS]     = {NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL};
+
+	  
+	  p = strtok (ntdiskopt,",");
+	  i=0;
+	  while (p != NULL) {
+		  if ((q=getname(p)) == NULL) {
+			  fprintf(stderr, "%s is not a valid disk name\n", p );
+			  exit(1);
+		  }
+		  ntdisks[i++] = q;
+
+		  if (i>=MAX_DISKS) {
+			  fprintf(stderr, "Too many disk arguments to --notemperature=\n");
+			  exit(1);
+		  }
+		  p = strtok (NULL, ",");
+	  }
+	  /* now convert the array of names into an array of booleans */
+	
+	  for (i=0; i<MAX_DISKS && disks[i]; ++i) {
+		  
+		  if (is_nt_disk(disks[i], ntdisks))
+			  temps[i] = true;  /* true means don't take the temperature */
+		  
+		  if (debug)
+			  fprintf(stderr, "disk %s notemp is %s\n", disks[i], temps[i] ? "true" : "false");
+	  }
+
+	  /* finally we turn OFF the global setting, as we have a more nuanced
+	     flavour (it might get turned on again of we get errors) */
+
+	  notemperature=false;
+	}
+
+	
+
 	if (dryrun)
 		fprintf(stderr, "This is a dryrun, disks will NOT be spun down\n");
 	
@@ -626,7 +795,7 @@ int main(int argc, char **argv)
 			);
 
 		for (i=0; i<no_disks; ++i) 
-			fprintf(stderr, "%s ", disks[i]);
+			fprintf(stderr, "%s%s ", disks[i],temps[i] ? "(notemp)" : ""  );
 		
 
 		fprintf(stderr,
@@ -653,7 +822,21 @@ int main(int argc, char **argv)
 	
 	fprintf(stderr, "Kernel=%s\n", getkernel());
 
+	now         = time(NULL);
+	next_wakeup = now + (sleep_time);
+	next_summary= now + (sleep_time*logevery);
+	
+	if (verbose) {
+		fprintf(stderr, "It is now %s, "              , myctime(&now));
+		fprintf(stderr, "expect next messages at %s, ", myctime(&next_wakeup));
+		fprintf(stderr, "next summary at %s\n"        , myctime(&next_summary));
+	}
+	else {
+		fprintf(stderr, "It is now %s, "              , myctime(&now));
+		fprintf(stderr, "next log message %s\n"       , myctime(&next_summary));
+	}
 
+	
 	if (debug) {
 		fprintf(stderr, "Will monitor these /sys files\n");
 		for (i=0; i<no_disks; ++i) {
@@ -693,7 +876,7 @@ int main(int argc, char **argv)
 	 */
 
 	if (verbose) {
-		printf("Space used by data structures is %d + %d bytes\n",
+		fprintf(stderr, "Space used by data structures is %d + %d bytes\n",
 		       logevery*sizeof(struct datapoint), logevery * (no_disks*sizeof(struct datum)));
 	}
 
@@ -710,6 +893,31 @@ int main(int argc, char **argv)
 			fprintf(stderr, "alldata[%d].data=%p\n", i, alldata[i].data);
 
 	}
+
+	/* allow signal to generate status reports in logs */
+	sigdata.max_samples = logevery;
+	sigdata.no_disks    = no_disks;
+	sigdata.alldata     = alldata;
+	
+	struct sigaction quit_act  = { 0 };
+	struct sigaction query_act = { 0 };
+
+	quit_act.sa_handler = &quit_handler;
+	if (sigaction(SIGQUIT, &quit_act, NULL) == -1) {
+		perror("sigaction(SIGQUIT)");
+		exit(EXIT_FAILURE);
+	}
+	query_act.sa_handler = &query_handler;
+	if (sigaction(SIGUSR1, &query_act, NULL) == -1) {
+		perror("sigaction(SIGUSR1)");
+		exit(EXIT_FAILURE);
+	}
+	query_act.sa_handler = &query_handler;
+	if (sigaction(SIGHUP, &query_act, NULL) == -1) {
+		perror("sigaction(SIGHUP)");
+		exit(EXIT_FAILURE);
+	}
+
 	
 	while (true) {						   /* Run forever */
 		for (i=0; i<logevery; ++i) 
@@ -722,7 +930,7 @@ int main(int argc, char **argv)
 			capture_datapoint(no_disks, disks, alldata+sample); /* grab the current numbers */
 			action_data(no_disks, &alldata[sample-1], &alldata[sample]);   /* take action based on old vs new numbers */
 		}
-		print_summary(logevery, no_disks, alldata);			    /* dump a log of what we found */
+		print_summary(logevery, warn, no_disks, alldata);			    /* dump a log of what we found */
 	}
 }
 

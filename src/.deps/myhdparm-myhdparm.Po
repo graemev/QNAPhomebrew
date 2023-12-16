@@ -30,8 +30,7 @@ myhdparm-myhdparm.o: myhdparm.c /usr/include/stdc-predef.h \
  /usr/include/arm-linux-gnueabi/bits/stdio_lim.h \
  /usr/include/arm-linux-gnueabi/bits/floatn.h \
  /usr/include/arm-linux-gnueabi/bits/floatn-common.h \
- /usr/include/arm-linux-gnueabi/bits/stdio.h /usr/include/stdlib.h \
- /usr/include/arm-linux-gnueabi/bits/waitflags.h \
+ /usr/include/stdlib.h /usr/include/arm-linux-gnueabi/bits/waitflags.h \
  /usr/include/arm-linux-gnueabi/bits/waitstatus.h \
  /usr/include/arm-linux-gnueabi/sys/types.h \
  /usr/include/arm-linux-gnueabi/bits/types/clock_t.h \
@@ -54,9 +53,8 @@ myhdparm-myhdparm.o: myhdparm.c /usr/include/stdc-predef.h \
  /usr/include/arm-linux-gnueabi/bits/atomic_wide_counter.h \
  /usr/include/arm-linux-gnueabi/bits/struct_mutex.h \
  /usr/include/arm-linux-gnueabi/bits/struct_rwlock.h \
- /usr/include/alloca.h \
- /usr/include/arm-linux-gnueabi/bits/stdlib-bsearch.h \
- /usr/include/arm-linux-gnueabi/bits/stdlib-float.h /usr/include/string.h \
+ /usr/include/alloca.h /usr/include/arm-linux-gnueabi/bits/stdlib-float.h \
+ /usr/include/string.h \
  /usr/include/arm-linux-gnueabi/bits/types/locale_t.h \
  /usr/include/arm-linux-gnueabi/bits/types/__locale_t.h \
  /usr/include/strings.h /usr/include/syslog.h \
@@ -128,7 +126,6 @@ myhdparm-myhdparm.o: myhdparm.c /usr/include/stdc-predef.h \
 /usr/include/arm-linux-gnueabi/bits/stdio_lim.h:
 /usr/include/arm-linux-gnueabi/bits/floatn.h:
 /usr/include/arm-linux-gnueabi/bits/floatn-common.h:
-/usr/include/arm-linux-gnueabi/bits/stdio.h:
 /usr/include/stdlib.h:
 /usr/include/arm-linux-gnueabi/bits/waitflags.h:
 /usr/include/arm-linux-gnueabi/bits/waitstatus.h:
@@ -155,7 +152,6 @@ myhdparm-myhdparm.o: myhdparm.c /usr/include/stdc-predef.h \
 /usr/include/arm-linux-gnueabi/bits/struct_mutex.h:
 /usr/include/arm-linux-gnueabi/bits/struct_rwlock.h:
 /usr/include/alloca.h:
-/usr/include/arm-linux-gnueabi/bits/stdlib-bsearch.h:
 /usr/include/arm-linux-gnueabi/bits/stdlib-float.h:
 /usr/include/string.h:
 /usr/include/arm-linux-gnueabi/bits/types/locale_t.h:

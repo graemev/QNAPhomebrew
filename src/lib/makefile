@@ -13,6 +13,7 @@ OBJECTS	   = $(SLOBJECTS)
 
 PREFIX = $(DESTDIR)/usr/local
 BINDIR = $(PREFIX)/bin
+LIBDIR = $(PREFIX)/lib
 
 TARGET=${HDPARMLIB}
 
@@ -29,3 +30,8 @@ $(HDPARMLIB): $(SLOBJECTS)
 
 clean:
 	rm -f $(TARGET) $(OBJECTS)
+
+install:
+	install -m644 $(HDPARMLIB) $(LIBDIR)
+	install -m644 usr-local.conf /etc/ld.so.conf.d
+	ldconfig

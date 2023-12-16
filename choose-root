@@ -97,7 +97,7 @@ do
     if [ "${thissuffix}" -ge "${suffix}" ] ; then  # Only consider higher numbers
 	if [ -b $choice ] ; then
 	    echo "Found $choice is valid block device, candidate for ROOT"
-	    sleep 4
+	    sleep 1
 	    NEWROOT=$choice
 
 	fi

@@ -87,7 +87,7 @@ POST_INSTALL = :
 NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
-bin_PROGRAMS = myhdparm$(EXEEXT) QNAP_manage_disks$(EXEEXT)
+bin_PROGRAMS = QNAP_manage_disks$(EXEEXT)
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/configure.ac
@@ -100,7 +100,8 @@ am__CONFIG_DISTCLEAN_FILES = config.status config.cache config.log \
 mkinstalldirs = $(install_sh) -d
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
-am__installdirs = "$(DESTDIR)$(bindir)" "$(DESTDIR)$(docdir)"
+am__installdirs = "$(DESTDIR)$(bindir)" "$(DESTDIR)$(man1dir)" \
+	"$(DESTDIR)$(docdir)"
 PROGRAMS = $(bin_PROGRAMS)
 am_QNAP_manage_disks_OBJECTS =  \
 	QNAP_manage_disks-QNAP_manage_disks.$(OBJEXT)
@@ -108,11 +109,6 @@ QNAP_manage_disks_OBJECTS = $(am_QNAP_manage_disks_OBJECTS)
 QNAP_manage_disks_DEPENDENCIES =
 QNAP_manage_disks_LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
 	$(QNAP_manage_disks_LDFLAGS) $(LDFLAGS) -o $@
-am_myhdparm_OBJECTS = myhdparm-myhdparm.$(OBJEXT)
-myhdparm_OBJECTS = $(am_myhdparm_OBJECTS)
-myhdparm_DEPENDENCIES =
-myhdparm_LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(myhdparm_LDFLAGS) \
-	$(LDFLAGS) -o $@
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -129,8 +125,7 @@ DEFAULT_INCLUDES = -I.@am__isrc@
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__maybe_remake_depfiles = depfiles
 am__depfiles_remade =  \
-	./$(DEPDIR)/QNAP_manage_disks-QNAP_manage_disks.Po \
-	./$(DEPDIR)/myhdparm-myhdparm.Po
+	./$(DEPDIR)/QNAP_manage_disks-QNAP_manage_disks.Po
 am__mv = mv -f
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
@@ -148,8 +143,8 @@ AM_V_CCLD = $(am__v_CCLD_@AM_V@)
 am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
-SOURCES = $(QNAP_manage_disks_SOURCES) $(myhdparm_SOURCES)
-DIST_SOURCES = $(QNAP_manage_disks_SOURCES) $(myhdparm_SOURCES)
+SOURCES = $(QNAP_manage_disks_SOURCES)
+DIST_SOURCES = $(QNAP_manage_disks_SOURCES)
 RECURSIVE_TARGETS = all-recursive check-recursive cscopelist-recursive \
 	ctags-recursive dvi-recursive html-recursive info-recursive \
 	install-data-recursive install-dvi-recursive \
@@ -190,6 +185,9 @@ am__uninstall_files_from_dir = { \
     || { echo " ( cd '$$dir' && rm -f" $$files ")"; \
          $(am__cd) "$$dir" && rm -f $$files; }; \
   }
+man1dir = $(mandir)/man1
+NROFF = nroff
+MANS = $(man1_MANS)
 DATA = $(dist_doc_DATA)
 RECURSIVE_CLEAN_TARGETS = mostlyclean-recursive clean-recursive	\
   distclean-recursive maintainer-clean-recursive
@@ -352,12 +350,9 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-myhdparm_SOURCES = myhdparm.c
-myhdparm_CPPFLAGS = -I$(top_srcdir) $(LIB_CPPFLAGS)
-myhdparm_LDADD = -Llib -lhdparm
-myhdparm_LDFLAGS = -Wl,-rpath=lib
+man1_MANS = QNAP_manage_disks.8
 QNAP_manage_disks_SOURCES = QNAP_manage_disks.c
-QNAP_manage_disks_CPPFLAGS = -I$(top_srcdir) $(LIB_CPPFLAGS)
+QNAP_manage_disks_CPPFLAGS = -I$(top_srcdir) $(LIB_CPPFLAGS) -Wall
 QNAP_manage_disks_LDADD = -Llib -lhdparm
 QNAP_manage_disks_LDFLAGS = -Wl,-rpath=lib
 SUBDIRS = lib
@@ -365,7 +360,7 @@ dist_doc_DATA = README
 all: all-recursive
 
 .SUFFIXES:
-.SUFFIXES: .c .o .obj
+.SUFFIXES: .1 .8 .c .md .o .obj
 am--refresh: Makefile
 	@:
 $(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
@@ -446,10 +441,6 @@ QNAP_manage_disks$(EXEEXT): $(QNAP_manage_disks_OBJECTS) $(QNAP_manage_disks_DEP
 	@rm -f QNAP_manage_disks$(EXEEXT)
 	$(AM_V_CCLD)$(QNAP_manage_disks_LINK) $(QNAP_manage_disks_OBJECTS) $(QNAP_manage_disks_LDADD) $(LIBS)
 
-myhdparm$(EXEEXT): $(myhdparm_OBJECTS) $(myhdparm_DEPENDENCIES) $(EXTRA_myhdparm_DEPENDENCIES) 
-	@rm -f myhdparm$(EXEEXT)
-	$(AM_V_CCLD)$(myhdparm_LINK) $(myhdparm_OBJECTS) $(myhdparm_LDADD) $(LIBS)
-
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
 
@@ -457,7 +448,6 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/QNAP_manage_disks-QNAP_manage_disks.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/myhdparm-myhdparm.Po@am__quote@ # am--include-marker
 
 $(am__depfiles_remade):
 	@$(MKDIR_P) $(@D)
@@ -492,20 +482,47 @@ QNAP_manage_disks-QNAP_manage_disks.obj: QNAP_manage_disks.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='QNAP_manage_disks.c' object='QNAP_manage_disks-QNAP_manage_disks.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(QNAP_manage_disks_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o QNAP_manage_disks-QNAP_manage_disks.obj `if test -f 'QNAP_manage_disks.c'; then $(CYGPATH_W) 'QNAP_manage_disks.c'; else $(CYGPATH_W) '$(srcdir)/QNAP_manage_disks.c'; fi`
+install-man1: $(man1_MANS)
+	@$(NORMAL_INSTALL)
+	@list1='$(man1_MANS)'; \
+	list2=''; \
+	test -n "$(man1dir)" \
+	  && test -n "`echo $$list1$$list2`" \
+	  || exit 0; \
+	echo " $(MKDIR_P) '$(DESTDIR)$(man1dir)'"; \
+	$(MKDIR_P) "$(DESTDIR)$(man1dir)" || exit 1; \
+	{ for i in $$list1; do echo "$$i"; done;  \
+	if test -n "$$list2"; then \
+	  for i in $$list2; do echo "$$i"; done \
+	    | sed -n '/\.1[a-z]*$$/p'; \
+	fi; \
+	} | while read p; do \
+	  if test -f $$p; then d=; else d="$(srcdir)/"; fi; \
+	  echo "$$d$$p"; echo "$$p"; \
+	done | \
+	sed -e 'n;s,.*/,,;p;h;s,.*\.,,;s,^[^1][0-9a-z]*$$,1,;x' \
+	      -e 's,\.[0-9a-z]*$$,,;$(transform);G;s,\n,.,' | \
+	sed 'N;N;s,\n, ,g' | { \
+	list=; while read file base inst; do \
+	  if test "$$base" = "$$inst"; then list="$$list $$file"; else \
+	    echo " $(INSTALL_DATA) '$$file' '$(DESTDIR)$(man1dir)/$$inst'"; \
+	    $(INSTALL_DATA) "$$file" "$(DESTDIR)$(man1dir)/$$inst" || exit $$?; \
+	  fi; \
+	done; \
+	for i in $$list; do echo "$$i"; done | $(am__base_list) | \
+	while read files; do \
+	  test -z "$$files" || { \
+	    echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(man1dir)'"; \
+	    $(INSTALL_DATA) $$files "$(DESTDIR)$(man1dir)" || exit $$?; }; \
+	done; }
 
-myhdparm-myhdparm.o: myhdparm.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(myhdparm_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT myhdparm-myhdparm.o -MD -MP -MF $(DEPDIR)/myhdparm-myhdparm.Tpo -c -o myhdparm-myhdparm.o `test -f 'myhdparm.c' || echo '$(srcdir)/'`myhdparm.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/myhdparm-myhdparm.Tpo $(DEPDIR)/myhdparm-myhdparm.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='myhdparm.c' object='myhdparm-myhdparm.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(myhdparm_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o myhdparm-myhdparm.o `test -f 'myhdparm.c' || echo '$(srcdir)/'`myhdparm.c
-
-myhdparm-myhdparm.obj: myhdparm.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(myhdparm_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT myhdparm-myhdparm.obj -MD -MP -MF $(DEPDIR)/myhdparm-myhdparm.Tpo -c -o myhdparm-myhdparm.obj `if test -f 'myhdparm.c'; then $(CYGPATH_W) 'myhdparm.c'; else $(CYGPATH_W) '$(srcdir)/myhdparm.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/myhdparm-myhdparm.Tpo $(DEPDIR)/myhdparm-myhdparm.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='myhdparm.c' object='myhdparm-myhdparm.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(myhdparm_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o myhdparm-myhdparm.obj `if test -f 'myhdparm.c'; then $(CYGPATH_W) 'myhdparm.c'; else $(CYGPATH_W) '$(srcdir)/myhdparm.c'; fi`
+uninstall-man1:
+	@$(NORMAL_UNINSTALL)
+	@list='$(man1_MANS)'; test -n "$(man1dir)" || exit 0; \
+	files=`{ for i in $$list; do echo "$$i"; done; \
+	} | sed -e 's,.*/,,;h;s,.*\.,,;s,^[^1][0-9a-z]*$$,1,;x' \
+	      -e 's,\.[0-9a-z]*$$,,;$(transform);G;s,\n,.,'`; \
+	dir='$(DESTDIR)$(man1dir)'; $(am__uninstall_files_from_dir)
 install-dist_docDATA: $(dist_doc_DATA)
 	@$(NORMAL_INSTALL)
 	@list='$(dist_doc_DATA)'; test -n "$(docdir)" || list=; \
@@ -832,10 +849,10 @@ distcleancheck: distclean
 	       exit 1; } >&2
 check-am: all-am
 check: check-recursive
-all-am: Makefile $(PROGRAMS) $(DATA)
+all-am: Makefile $(PROGRAMS) $(MANS) $(DATA)
 installdirs: installdirs-recursive
 installdirs-am:
-	for dir in "$(DESTDIR)$(bindir)" "$(DESTDIR)$(docdir)"; do \
+	for dir in "$(DESTDIR)$(bindir)" "$(DESTDIR)$(man1dir)" "$(DESTDIR)$(docdir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
 install: install-recursive
@@ -875,7 +892,6 @@ clean-am: clean-binPROGRAMS clean-generic mostlyclean-am
 distclean: distclean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
 		-rm -f ./$(DEPDIR)/QNAP_manage_disks-QNAP_manage_disks.Po
-	-rm -f ./$(DEPDIR)/myhdparm-myhdparm.Po
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-tags
@@ -892,7 +908,7 @@ info: info-recursive
 
 info-am:
 
-install-data-am: install-dist_docDATA
+install-data-am: install-dist_docDATA install-man
 
 install-dvi: install-dvi-recursive
 
@@ -908,7 +924,7 @@ install-info: install-info-recursive
 
 install-info-am:
 
-install-man:
+install-man: install-man1
 
 install-pdf: install-pdf-recursive
 
@@ -924,7 +940,6 @@ maintainer-clean: maintainer-clean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
 	-rm -rf $(top_srcdir)/autom4te.cache
 		-rm -f ./$(DEPDIR)/QNAP_manage_disks-QNAP_manage_disks.Po
-	-rm -f ./$(DEPDIR)/myhdparm-myhdparm.Po
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 
@@ -940,7 +955,10 @@ ps: ps-recursive
 
 ps-am:
 
-uninstall-am: uninstall-binPROGRAMS uninstall-dist_docDATA
+uninstall-am: uninstall-binPROGRAMS uninstall-dist_docDATA \
+	uninstall-man
+
+uninstall-man: uninstall-man1
 
 .MAKE: $(am__recursive_targets) install-am install-strip
 
@@ -956,15 +974,24 @@ uninstall-am: uninstall-binPROGRAMS uninstall-dist_docDATA
 	install-data-am install-dist_docDATA install-dvi \
 	install-dvi-am install-exec install-exec-am install-html \
 	install-html-am install-info install-info-am install-man \
-	install-pdf install-pdf-am install-ps install-ps-am \
-	install-strip installcheck installcheck-am installdirs \
-	installdirs-am maintainer-clean maintainer-clean-generic \
-	mostlyclean mostlyclean-compile mostlyclean-generic pdf pdf-am \
-	ps ps-am tags tags-am uninstall uninstall-am \
-	uninstall-binPROGRAMS uninstall-dist_docDATA
+	install-man1 install-pdf install-pdf-am install-ps \
+	install-ps-am install-strip installcheck installcheck-am \
+	installdirs installdirs-am maintainer-clean \
+	maintainer-clean-generic mostlyclean mostlyclean-compile \
+	mostlyclean-generic pdf pdf-am ps ps-am tags tags-am uninstall \
+	uninstall-am uninstall-binPROGRAMS uninstall-dist_docDATA \
+	uninstall-man uninstall-man1
 
 .PRECIOUS: Makefile
 
+
+.md.1:
+.md.8:
+	pandoc $< -s -t man -o $@
+
+#@GENERATE_CHANGELOG_RULES@
+#CHANGELOG_START = 0.2.3^
+#dist-hook: dist-ChangeLog
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

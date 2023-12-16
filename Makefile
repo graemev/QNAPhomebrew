@@ -3,7 +3,10 @@ CFLAGS=-g
 SBINS=count_goes count_flash_attempts  count_flash_actuals construct_dl_image\
 	action_flash_kernel fake_flash_kernel dl_flash_kernel
 BINS=QNAP_clone_alldisk QNAP_clone_disk QNAP_commision_disk QNAP_config_disk QNAP_create_raid\
-	QNAP_recreate_raid QNAPgensamba QNAPmount QNAPinstalldepends QNAP_manage_disks
+	QNAP_recreate_raid QNAPgensamba QNAPmount QNAPinstalldepends
+
+# This works but there us a better C program version (same name)
+NOTBUILT=QNAP_manage_disks
 
 SERVICES=QNAP_manage_disks.service QNAPmount.service
 
@@ -27,14 +30,12 @@ LIBS=dl_flash_functions
 	chmod 555 $@
 
 ALL:	$(TARGETS) $(ISCRIPTS) $(SUBDIRS)
-	etags *.[ch]
+#	etags *.[ch]
 
 $(SUBDIRS):
 	$(MAKE) -C $@
 
 .PHONY: all $(SUBDIRS)
-
-
 
 BIN=/usr/local/bin
 SBIN=/usr/local/sbin
@@ -49,15 +50,25 @@ count_flash_actuals:	count_goes
 	ln -s count_goes count_flash_actuals
 
 
-install:	ALL install_service
+install:	ALL install_service $(SUBDIRS)
 	install  	$(BINS)     $(BIN)
 	install  	$(SBINS)    $(SBIN)
 	install  	$(ISCRIPTS) $(INITRAM)
 	install -D    	$(LIBS)	  $(LIB)
 	rm -f $(SBIN)/flash-kernel && ln -s $(SBIN)/fake_flash_kernel $(SBIN)/flash-kernel
+#	for subdir in $(SUBDIRS); do \
+#	  echo "GPV Making $$target in $$subdir"; \
+#	  cd $$subdir && $(MAKE) $@; \
+#	done
+#	Dubious this works for multiple subdir, may need the above text
+	$(MAKE) -C $(SUBDIRS) $@
 
 install_service:
 	install	-m444	$(SERVICES) $(SYSTEMD)
 
 clean:
 	rm -f $(TARGETS)
+
+.md.1:
+.md.8:
+	pandoc $< -s -t man -o $@
