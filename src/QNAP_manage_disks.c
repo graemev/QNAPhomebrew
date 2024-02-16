@@ -499,6 +499,9 @@ void	print_summary(int no_samples, int warn, int no_disks, struct datapoint *all
 	int	      sleep_count[MAX_DISKS]; /* Number of times we put the disk to sleep (should be low) */
 	int	      high_C[MAX_DISKS];      /* high temperature */
 	int	      low_C[MAX_DISKS];       /* low temperature */
+	time_t	      spindown[MAX_DISKS];    /* Time of the last (so most recent) spindown */
+
+
 	
 	if (debug) {
 		fprintf(stderr, "\n\nDEBUG: alldata@%p has %d samples each with %d disks:\n", alldata, no_samples, no_disks);
@@ -536,13 +539,16 @@ void	print_summary(int no_samples, int warn, int no_disks, struct datapoint *all
 	for (disk=0; disk<MAX_DISKS; ++disk) {
 		sleep_count[disk] = high_C[disk] = 0;
 		low_C[disk] = INT_MAX;
+		spindown[disk] = 0;
 	}
 	for (sample=1; sample<no_samples; ++ sample) {
 		ad = alldata[sample].data;
 		for (disk=0; disk<no_disks; ++disk) {
 			d=ad+disk;
-			if (d->action == STOP_SPIN)
+			if (d->action == STOP_SPIN) {
 				sleep_count[disk]+=1;
+				spindown[disk] = alldata[sample].timestamp;
+			}
 			if (d->temp > high_C[disk])
 				high_C[disk] = d->temp;
 			if (d->temp < low_C[disk])
@@ -554,6 +560,8 @@ void	print_summary(int no_samples, int warn, int no_disks, struct datapoint *all
 	fprintf(stderr, "Between %s and ",  buffer);
 	(void)strftime(buffer, 32,"%F-%T%z  ",localtime_r(&(alldata[no_samples-1].timestamp), &timestamp)); /* endtime */
 	fprintf(stderr, "%s %d samples: ",  buffer, no_samples);
+
+	fprintf(stderr, "\n");
 	
 	for (disk=0; disk<no_disks; ++disk) {
 
@@ -568,11 +576,15 @@ void	print_summary(int no_samples, int warn, int no_disks, struct datapoint *all
 			fprintf(stderr, " its temperature was not measured");
 		else
 			fprintf(stderr, " Temp %dC-%dC", low_C[disk]/1000, high_C[disk]/1000);
+
+		(void)strftime(buffer, 32,"%F-%T%z  ",localtime_r(&(spindown[disk]), &timestamp));          /* spindown */
+		fprintf(stderr, " Last spundown @ %s", buffer);
+
+		fprintf(stderr, "\n");
 	}
 
 	
 	
-	fprintf(stderr, "\n");
 }
 
 static void dump_status(int no_samples, int no_disks, struct datapoint *alldata)  {

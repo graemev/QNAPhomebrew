@@ -1,10 +1,11 @@
 [Unit]
 Description=Make all the QNAPhomebrew filesystems avaiable (NFS & SAMBA)
 After=network.target
+Before=minidlna.service samba.service
 
 [Service]
 Type=oneshot
 ExecStart=/bin/bash -c 'QNAPmount' && echo 'QNAPmount completed'
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=multi-user.target minidlna.service samba.service

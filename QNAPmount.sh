@@ -66,9 +66,10 @@ function do_nonraid() {
 
     for d in $@
     do
-	mkdir -p  /QNAP/mounts/${mount}/${d}
-	ln -fs -T /QNAP/mounts/${mount}/${d}  /share/${d}
-	exportfs  ${export_flags}:/share/${d}
+	mkdir -p       /QNAP/mounts/${mount}/${d}  /${d}
+	mount -o bind  /QNAP/mounts/${mount}/${d}  /${d}
+	ln -fs -T      /QNAP/mounts/${mount}/${d}  /share/${d}
+	exportfs                  ${export_flags}: /${d} 
     done
     }
 
@@ -80,9 +81,10 @@ function do_raid() {
     
     for d in $@
     do
-	mkdir -p  /QNAP/mounts/${mount}/${d}
-	ln -fs -T /QNAP/mounts/${mount}/${d}  /share/${d}
-	exportfs  ${export_flags}:/share/${d}
+	mkdir -p       /QNAP/mounts/${mount}/${d}  /${d}
+	mount -o bind  /QNAP/mounts/${mount}/${d}  /${d}
+	ln -fs -T      /QNAP/mounts/${mount}/${d}  /share/${d}
+	exportfs                  ${export_flags}: /${d} 
     done
     }
 
