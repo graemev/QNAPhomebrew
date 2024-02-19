@@ -2,7 +2,7 @@
 
 
 #
-# Installs pages used by or useful with QNAPhombrew
+# Installs packages used by or useful with, QNAPhombrew
 #
 apt-get -u update
 

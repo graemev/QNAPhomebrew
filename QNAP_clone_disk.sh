@@ -55,7 +55,7 @@ USAGE:
           has failed and you are running on a secondary, it may well downgrade a drive.
 
 	  As an example, consider we run Debain Bullseye and we upgrade to
-	  Bookwor, while runniing on the eSATA (root5) if we update 1 - 4, all
+	  Bookworm, while runniing on the eSATA (root5) if we update 1 - 4, all
 	  will move to Bookworm.  If we don#t update and at some later date,
 	  boot from Tray4=root4, we will still be running bullseye, if we run this 
 	  script with -b 1 then root1 will get downgraded. If we find the eSATA was unplugged

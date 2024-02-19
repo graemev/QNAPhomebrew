@@ -44,7 +44,7 @@ USAGE:
 
 
        If you've followed the convention of "homebrew"  trays 1-4 will have a partition
-       with the label data0...data4. It will have a filesystem on it, bit this 
+       with the label data0...data4. It will have a filesystem on it, but this 
        script will blow it away. 
 
        If you only have 3 drives , set n to 3 n=5 would allow you to use eSATA
