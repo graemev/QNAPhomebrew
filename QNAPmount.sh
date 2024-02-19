@@ -69,7 +69,7 @@ function do_nonraid() {
 	mkdir -p       /QNAP/mounts/${mount}/${d}  /${d}
 	mount -o bind  /QNAP/mounts/${mount}/${d}  /${d}
 	ln -fs -T      /QNAP/mounts/${mount}/${d}  /share/${d}
-	exportfs                  ${export_flags}: /${d} 
+	exportfs                   "${export_flags}:/${d}"
     done
     }
 
@@ -84,7 +84,7 @@ function do_raid() {
 	mkdir -p       /QNAP/mounts/${mount}/${d}  /${d}
 	mount -o bind  /QNAP/mounts/${mount}/${d}  /${d}
 	ln -fs -T      /QNAP/mounts/${mount}/${d}  /share/${d}
-	exportfs                  ${export_flags}: /${d} 
+	exportfs                   "${export_flags}:/${d}"
     done
     }
 
