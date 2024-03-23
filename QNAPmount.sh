@@ -57,6 +57,7 @@
 #export_flags="*(rw,sync,wdelay,hide,nocrossmnt,secure,root_squash,no_all_squash,no_subtree_check,secure_locks,acl,no_pnfs,anonuid=65534,anongid=65534,sec=sys,rw,secure,root_squash,no_all_squash)"
 
 export_flags="*"
+options='-o rw,no_root_squash'
 
 function do_nonraid() {
     mount=$1; shift
@@ -69,7 +70,7 @@ function do_nonraid() {
 	mkdir -p       /QNAP/mounts/${mount}/${d}  /${d}
 	mount -o bind  /QNAP/mounts/${mount}/${d}  /${d}
 	ln -fs -T      /QNAP/mounts/${mount}/${d}  /share/${d}
-	exportfs                   "${export_flags}:/${d}"
+	exportfs      ${options}  "${export_flags}:/${d}"
     done
     }
 
@@ -84,7 +85,7 @@ function do_raid() {
 	mkdir -p       /QNAP/mounts/${mount}/${d}  /${d}
 	mount -o bind  /QNAP/mounts/${mount}/${d}  /${d}
 	ln -fs -T      /QNAP/mounts/${mount}/${d}  /share/${d}
-	exportfs                   "${export_flags}:/${d}"
+	exportfs       ${options} "${export_flags}:/${d}"
     done
     }
 
