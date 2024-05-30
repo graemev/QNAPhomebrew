@@ -1,4 +1,4 @@
-% QNAP_installdepends(1) Version 1.0 | Initial "QNAP_installdepends" Documentation
+% QNAP_installdepends(1) Version 1.0 | QNAPHomebrew admin
 
 NAME
 ====

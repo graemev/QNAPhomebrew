@@ -1,4 +1,4 @@
-% QNAP\_create\_raid(8) Version 1.0 | Initial "QNAP\_create\_raid" Documentation
+% QNAP\_create\_raid(8) Version 1.0 | QNAPHomebrew admin
 
 NAME
 ====

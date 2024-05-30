@@ -1,4 +1,4 @@
-% QNAP\_config\_disks(1) Version 1.0 | Initial "QNAP\_config\_disks" Documentation
+% QNAP\_config\_disks(1) Version 1.0 | QNAPHomebrew admin
 
 NAME
 ====

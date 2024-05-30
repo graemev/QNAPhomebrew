@@ -1,4 +1,4 @@
-% QNAP\_manage\_disks.service(5) Version 1.0 | Initial "QNAP\_manage\_disks.service" Documentation
+% QNAP\_manage\_disks.service(5) Version 1.0 | QNAPHomebrew service
 
 NAME
 ====

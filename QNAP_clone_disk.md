@@ -1,4 +1,4 @@
-% QNAP\_clone\_disk(8) Version 1.0 | Initial "QNAP\_clone\_disk" Documentation
+% QNAP\_clone\_disk(8) Version 1.0 | QNAPHomebrew admin
 
 NAME
 ====

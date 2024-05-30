@@ -1,4 +1,4 @@
-% QNAPmount(8) Version 1.0 | Initial "QNAPmount" Documentation
+% QNAPmount(8) Version 1.0 | QNAPHomebrew admin
 
 NAME
 ====

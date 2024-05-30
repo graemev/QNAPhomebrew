@@ -1,4 +1,4 @@
-% QNAPmount.service(5) Version 1.0 | Initial "QNAPmount.service" Documentation
+% QNAPmount.service(5) Version 1.0 | QNAPHomebrew service
 
 NAME
 ====

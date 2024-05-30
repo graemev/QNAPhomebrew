@@ -1,4 +1,4 @@
-% QNAP_commission_disk(1) Version 1.0 | Initial "QNAP_commission_disk" Documentation
+% QNAP_commission_disk(1) Version 1.0 | QNAPHomebrew admin
 
 NAME
 ====
