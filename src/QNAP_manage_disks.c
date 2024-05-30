@@ -16,7 +16,7 @@
  */
 
 #ifndef VERSION
-#define VERSION "0.4"
+#define VERSION "0.5"
 #endif
 
 #include <errno.h>
@@ -83,7 +83,7 @@ static char * str_disk_state(int state) {
 
 #define NO_ACTION   0
 #define STOP_SPIN   1
-/* there are other actions we could take, short to total stop of spinning */
+/* there are other actions we could take, short of a  total stop of spinning */
 
 static char * str_disk_action(int action) {
 	char * s;
@@ -214,7 +214,7 @@ struct  {
 } sigdata = {0,0,NULL};
 
 
-/* Used in parsing args 'is disk in the list of disks supplied on --notemperature=xxx option? */
+/* is it a "no temperature disk". Used in parsing args 'is disk in the list of disks supplied on --notemperature=xxx option?' */
 static bool is_nt_disk(const char *disk, const char *ntdisks[]) {
 
   int	i;
@@ -496,6 +496,7 @@ void	print_summary(int no_samples, int warn, int no_disks, struct datapoint *all
 	struct tm     timestamp;
 	char          buffer[32];
 
+	int	      was_asleep[MAX_DISKS];  /* Number of times we found this disk was already asleep (this is a win) */
 	int	      sleep_count[MAX_DISKS]; /* Number of times we put the disk to sleep (should be low) */
 	int	      high_C[MAX_DISKS];      /* high temperature */
 	int	      low_C[MAX_DISKS];       /* low temperature */
@@ -537,7 +538,7 @@ void	print_summary(int no_samples, int warn, int no_disks, struct datapoint *all
 		}
 	}
 	for (disk=0; disk<MAX_DISKS; ++disk) {
-		sleep_count[disk] = high_C[disk] = 0;
+		sleep_count[disk] = high_C[disk] = was_asleep[disk] = 0;
 		low_C[disk] = INT_MAX;
 		spindown[disk] = 0;
 	}
@@ -545,6 +546,9 @@ void	print_summary(int no_samples, int warn, int no_disks, struct datapoint *all
 		ad = alldata[sample].data;
 		for (disk=0; disk<no_disks; ++disk) {
 			d=ad+disk;
+			if (d->state == IS_STANDBY)
+				was_asleep[disk]+=1;
+			
 			if (d->action == STOP_SPIN) {
 				sleep_count[disk]+=1;
 				spindown[disk] = alldata[sample].timestamp;
@@ -565,11 +569,13 @@ void	print_summary(int no_samples, int warn, int no_disks, struct datapoint *all
 	
 	for (disk=0; disk<no_disks; ++disk) {
 
+		fprintf(stderr, "%s was asleep %d times", disks[disk],  was_asleep[disk]);
+				
 		if (sleep_count[disk] >= warn)
-			fprintf(stderr, "*WARNING*: %s was spundown %d times, either actively is higher than expected or you should not monitor this drive\n",
-				disks[disk], sleep_count[disk]);
+			fprintf(stderr, " *WARNING*: it was spundown %d times, either actively is higher than expected or you should not monitor this drive\n",
+				sleep_count[disk]);
 		else
-			fprintf(stderr, " %s stopped %d times",  disks[disk], sleep_count[disk]);
+			fprintf(stderr, " stopped %d times", sleep_count[disk]);
 
 
 		if (notemperature)
@@ -659,8 +665,8 @@ int main(int argc, char **argv)
 {
 	bool help          = false;
 	bool version       = false;
-	int  sleep_time    = 3600;
-	int  logevery      = 24;
+	int  sleep_time    = 3600;  /* 1 hour           */
+	int  logevery      = 24;    /* 24 Hours = 1 Day */
 	int  warn          = 0;
 	
 	int  i;
@@ -668,7 +674,7 @@ int main(int argc, char **argv)
 	int  no_disks;
 	const char *p;
 
-	int	sample  = 0; // e.g. 0-23 (typically hours)
+	int  sample  = 0; // e.g. 0-23 (typically hours)
 
 	struct datapoint *alldata;  /* actually an array of datapoints */
 	
@@ -677,6 +683,9 @@ int main(int argc, char **argv)
 	char *ntdiskopt=NULL;		
 
 	time_t now,next_wakeup,next_summary;
+
+
+	int    no_datapoints;
 	
 	while (1) {
 		struct option long_options[] = {
@@ -732,7 +741,7 @@ int main(int argc, char **argv)
 	}
 
 	if (warn == 0) {
-		warn=logevery-1;  /* with 24 samaples only 23 can have an action (spindown) */
+		warn=logevery-1; 
 	}
 	
 	
@@ -787,7 +796,7 @@ int main(int argc, char **argv)
 	  }
 
 	  /* finally we turn OFF the global setting, as we have a more nuanced
-	     flavour (it might get turned on again of we get errors) */
+	     flavour (it might get turned on again if we get errors) */
 
 	  notemperature=false;
 	}
@@ -837,6 +846,8 @@ int main(int argc, char **argv)
 	now         = time(NULL);
 	next_wakeup = now + (sleep_time);
 	next_summary= now + (sleep_time*logevery);
+
+	no_datapoints = logevery+1;   /* [0] plus eg 24 more */
 	
 	if (verbose) {
 		fprintf(stderr, "It is now %s, "              , myctime(&now));
@@ -871,7 +882,7 @@ int main(int argc, char **argv)
 	 *               datapoint[4]                          datum[2]
 	 *               datapoint[5]                           datum[3].state
 	 *               ...                                    datum[3].action
-	 *               datapoint[logevery-1]                  datum[3].writes
+	 *               datapoint[logevery]                    datum[3].writes
 	 *                                                      datum[3].temp
 	 *
 	 * So higlighted here is the 3rd sample (no 2) 
@@ -889,16 +900,16 @@ int main(int argc, char **argv)
 
 	if (verbose) {
 		fprintf(stderr, "Space used by data structures is %d + %d bytes\n",
-		       logevery*sizeof(struct datapoint), logevery * (no_disks*sizeof(struct datum)));
+		       no_datapoints*sizeof(struct datapoint), no_datapoints * (no_disks*sizeof(struct datum)));
 	}
 
-	alldata = calloc(logevery, sizeof(struct datapoint));    /* eg 24 datapoints */
+	alldata = calloc(no_datapoints, sizeof(struct datapoint));    /* eg 24 datapoints */
 
 	if (debug)
 		fprintf(stderr, "alldata=%p\n", alldata);
 
 
-	for (i=0; i<logevery; ++i) {
+	for (i=0; i<no_datapoints; ++i) {
 		alldata[i].timestamp = 0;
 		alldata[i].data      = calloc(no_disks, sizeof(struct datum));
 		if (debug)
@@ -907,7 +918,7 @@ int main(int argc, char **argv)
 	}
 
 	/* allow signal to generate status reports in logs */
-	sigdata.max_samples = logevery;
+	sigdata.max_samples = no_datapoints;
 	sigdata.no_disks    = no_disks;
 	sigdata.alldata     = alldata;
 	
@@ -930,19 +941,24 @@ int main(int argc, char **argv)
 		exit(EXIT_FAILURE);
 	}
 
+
+	/*
+	 * So for 24 (hours) for example, we would need alldata[0] ate start, then [1] .... [24] to hold the end of interval figures .. ie 25 in all
+	 */
+	
 	
 	while (true) {						   /* Run forever */
-		for (i=0; i<logevery; ++i) 
+		for (i=0; i<no_datapoints; ++i) 
 			alldata[i].timestamp = 0;		  /* zero all timestamps (we reuse this structure) so on abnormal exit we know its invalid */
 	       
 		capture_datapoint(no_disks,disks,&(alldata[0]));   /* (single datapoint) grab the initial numbers */
 
-		for (sample=1; sample<logevery; ++sample) {
+		for (sample=1; sample<no_datapoints; ++sample) {   /* eg 1 - 24 compares [0]-[23] to [1]-[24] so 25 datapoints */
 			sleep(sleep_time);
 			capture_datapoint(no_disks, disks, alldata+sample); /* grab the current numbers */
 			action_data(no_disks, &alldata[sample-1], &alldata[sample]);   /* take action based on old vs new numbers */
 		}
-		print_summary(logevery, warn, no_disks, alldata);			    /* dump a log of what we found */
+		print_summary(no_datapoints, warn, no_disks, alldata);			    /* dump a log of what we found */
 	}
 }
 
