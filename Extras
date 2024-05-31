@@ -1,0 +1,97 @@
+These are useful bits to add to QNAPhomebrew. They make it more like QTS and also lower security quite a lot.
+They are not automated, you need to understand what you are doing 
+
+
+1: Add telnet(1) NB telnet is a big security issue. I install it as alternative logon route in case something breaks WRT ssh
+
+   # apt-get install telnetd
+   # update-inetd --verbose --enable telnet
+
+
+2: Install rsync daemon. QTS installed a pretty basic rsync. This is a full
+   rsync. The user rsync is not normal but helps to match the QTS behaviour. One
+   "advantage" of running rsyncd (as a daemon) over just using the rsync(1)
+   command (so two "::" rather than one ":") is that it does not then use ssh(1)
+   as its transport. On the ts412 running rsync over ssh causes ssh to use
+   about 70% CPU and so the sync is very slow (albeit more secure).
+
+   In addition to simply running rsync as a process via ssh, there are two
+   common ways to run it as a daemon. First is to simply launch it at system
+   boot and have it wait for incoming connections, the second is to use the
+   "super daemon" (inetd) which launches daemons only when they are needed.
+
+   Note this method (below) uses the "super daemon" inetd to launch rsync; a
+   better method would be to use a systemd socket; sadly the default systemd
+   setup on bookworm unconditionally starts rsync(d) (rsync.service) using up
+   more system memory. You can use that method if you prefer.
+
+   # apt-get install rsync
+
+   edit /etc/inetd.conf, add the line:
+
+#:OTHER: Other services
+rsync   stream  tcp     nowait  root   /usr/bin/rsync rsyncd --daemon
+
+   If you want you can then do:
+
+   # update-inetd --verbose --enable rsync
+
+   But it will simply report something like:
+
+Processing /etc/inetd.conf
+Using tempfile /tmp/inetdYX334
+No service entries were enabled
+
+   If you disable and re-enable it , you'll see more sensible messages (but it's not necessary)
+
+
+# update-inetd --verbose --disable rsync
+Processing /etc/inetd.conf
+Using tempfile /tmp/inetdcfJRTdB
+Processing service 'rsync' ... disabled
+About to send SIGHUP to inetd (pid: 1287)
+Number of service entries disabled: 1
+
+# update-inetd --verbose --enable rsync
+Processing /etc/inetd.conf
+Using tempfile /tmp/inetd8gJ_f
+Processing service 'rsync' ... enabled
+About to send SIGHUP to inetd (pid: 1287)
+Number of service entries enabled: 1
+
+(if you don't disable/enable, then "hup" inetd   # ps -ef | grep inetd  .... # kill -1 <pid of inetutils-inetd AKA inetd> )
+
+
+You won't see rsync(d) running, it will be started by inetd (this really should be started by a systemd socket nowadays) as needed.
+
+On bookworm the default setup is to start rsync(d) as a permanently running daemon, so we need to disable that:
+
+# systemctl disable rsync
+
+  To match the QTS behaviour we add the user "rsyncd" this corresponds to QTS "admin" you may want to use that name instead.
+  Additionally we define a "fake user" "rsync"  (note the lack of d) as is defined in QNAP GUI (you may have chosen a different name)
+
+  NB set your own value for mypassword
+
+# groupadd -o -g 0 rsyncd
+# useradd  -r -o -u 0 -G 100 -g rsyncd -d /tmp  -c "Rsync user to match QTS" rsyncd
+# passwd rsyncd
+
+NB This is the user who runs "rsyncd" it is similar to the QTS flavour. It is not very good for security
+it is basically root. A better way to make this user is as "nobody" (uid 65534) "nogroup" (gid 65534) but with additional groups
+able to read all the files you might want to backup (e.g. staff, family,everybody)
+
+         groupadd -o -g nogroup rsyncd
+         useradd  -r -o -u nobody -G staff,family -g rsyncd -d /tmp  -c "Rsync user with custom permissions" rsyncd
+
+
+   Create the file /etc/rsyncd.conf, looking at DEBIAN-rsyncd.conf here.
+
+   You need to then create the file: /etc/rsyncd.passwd, looking something like:
+
+rsync:mypassword-goes-here
+
+Make it owned by rsyncd (AKA root) mode 660 .
+
+
+

@@ -1,0 +1,10 @@
+# Make our InternalAdmin available to "doze users"
+[InternalAdmin]
+   comment = Samba server's InternalAdmin
+   read only = no
+   writable = yes
+   locking = no
+   path = /share/InternalAdmin
+   guest ok = yes
+   browseable = yes
+   force user = nobody

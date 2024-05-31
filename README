@@ -1,0 +1,42 @@
+19Oct2023: Graeme Vetterlein. Scripts to allow TS412 to run as a NAS [ :-) ] using minimum (electrical) power.
+So try to spin the disks down, stop the fan, slow the CPU to lowest speed etc.
+
+This makes extensive use of "labels" (filesystem and swap). We assume the (4)
+trays of the QNAP hold different sized disks and there is an external SSD, which
+is the normal "boot system".
+
+So for example Tray1 might hold:
+
+Label  Typical Mount
+
+boot1  /boot
+root1  /
+var1   /var
+swap1  Used as swap (swapon(8))
+tmp1   /tmp
+home1  /home
+data1  TBD
+rest1  TBD
+
+The scripts:
+
+
+ QNAPmount.sh				- Enable the various filesystem so they get shared
+ grab-all-mdt-with-saboteur.sh		- Needed to make a PiXe backup image of the FLASH (iff we are running a SABOTER layout)
+ grab-all-mdt-with-mouiche.sh		- Needed to make a PiXe backup image of the FLASH (iff we are running a MOUICHE layout)
+ grab-all-mdt-with-QTS.sh		- Needed to make a PiXe backup image of the FLASH (iff we are running original QTS)
+
+
+ QNAP_commision_disk.sh			- Completely reformat a drive to use it with Homebrew (needs to be "blanked" first)
+ QNAP_config_disk.sh			- Set the HDPARMS etc so the drives use minimum power (or not if you so choose)
+ QNAP_create_raid.sh			- creates /dev/md0 using all (e.g. data) partitions
+ QNAP_clone_disk.sh			- Takes the "current" system (not DATA) and clones it to another drive
+ QNAP_clone_alldisk.sh			- Calls QNAP_clone_disk.sh to clone to all the "other" drives
+ Makefile				- Builds the commands
+ choose-root				- copy to /etc/initramfs-tools/scripts/local-top/choose-root to enable multiboot
+
+Documents
+
+README					- This file
+Depends					- Other things required
+Extras					- Other bits & pieces you might wnat to use/do

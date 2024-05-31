@@ -1,0 +1,122 @@
+#!/bin/sh -e
+
+PREREQS="udev"
+
+prereqs() { echo "$PREREQS"; }
+
+case "$1" in
+    prereqs)
+    prereqs
+    exit 0
+    ;;
+esac
+
+# $Id: choose_best_dproot 22 2012-04-22 16:25:18Z  $
+#
+# Graeme Vetterlein 21Apr2012 Choose the 'best' filesystem for dreamplug root
+# Graeme Vetterlein 02Jul2023 Minor changes to use this on a QNAP412
+#
+# On the Dreamplug, we could specify ROOT (via jtag or vai setenv) and so set ROOT=foo
+# On QNAP we can't set the root, so it's hardcoded to the word "root"
+#
+# On QNAP: My initrd file /conf/param.conf contains: ROOT="/dev/disk/by-uuid/0cc913c1-da92-4767-ba55-a56f57f88bdc"
+# (but we have no simple way to set that value)
+#
+# So we can override the ROOT= setting by adding lines to /conf/param.conf
+# 
+# So assume /conf/param.conf contains: ROOT="/dev/disk/by-uuid/0cc913c1-da92-4767-ba55-a56f57f88bdc"
+# We might add a line like ROOT=/dev/disk/by-label/root9
+# 
+# This will change the root filesystem mounted. But to be clear. The Kernel and the initrd will
+# be the one stored in Flash on the Qnap but the root will be the one we mount, then it contains /etc/fstab
+# this can cause /var /home /boot etc to be mounted, typically the same harddisk at /root.
+# 
+# So why did we choose ROOT=/dev/disk/by-label/root9?
+# 
+# On the Dreamplug we could "seed" this value, but in QNAP (without a JTAG) we can't easliy do so
+# 
+# So we need to be more heavy handed. If we find any /dev/disk/by-lable/root<n> we use them
+# and ignore the incomming ROOT= , otherwise we use the ROOT= provided.
+#
+# Then we scan /dev/disk/by-label/root* looking for root0, root1 ... root9 we chose the highest numbered one.
+#
+# This allows you to have a good root filesystem stored on bays 1-4 and another
+# one stored on an external HDD/SSD (tested with eSATA on TS412, but should work
+# with USB drives) the if we have an external SSD with a root filesystem labeled
+# root7 it will choose root7, then we can unplug the SSD and and it might choose
+# root4. We could pull out the bay and it might choose root3 and so on.
+#
+#
+# Who	When	What
+# GPV	21Apr12	Created initial script , booting from external SD card
+# GPV	02Jul23	For QNAP need to be more heavy-handed, since we lack a JTAG ...IFF we find LABEL=root[0-9] we override ROOT= otherwise we leave it untouched
+# GPV	30jul23	There was a stupid "break" that meant ti took the 1st root it found (not the highest)
+# GPV   30jul23 Removed comment , so actual update will be made to /conf/param.conf"
+
+# Log via kernel ring buffer (use dmesg) ... comment out while testing as non root
+
+# Bash only
+#exec > >(tee "/dev/kmsg") 2>&1
+
+# comment out while debugging
+
+echo "choose_root incoming ROOT=${ROOT}"
+
+exec > /dev/kmsg 2>&1
+
+
+
+if [ -n "${ROOT}" -a -b "${ROOT}" ] ; then
+    echo "FYI incoming ROOT=$ROOT is a valid block device."
+else
+    echo "FYI incoming ROOT=$ROOT is NOT a valid block device, unless we find an alternate, boot will fail"
+fi
+
+NEWROOT=""
+
+# Bash only
+#typeset -i suffix
+#typeset -i thissuffix
+
+prefix="/dev/disk/by-label/root"	# /dev/disk/by-label/root
+suffix=0
+
+choices=${prefix}[0-9]	   # eg /dev/disk/by-label/root1, /dev/disk/by-label/root2, /dev/disk/by-label/root4
+
+for choice in ${choices}
+do
+    echo "choice=$choice"
+    # Above will shell expand if possible, but is taken literally iff NOTHING matches
+    if [ "${choice}" = "${prefix}[0-9]" ] ; then
+	echo "There are no suitable alternatives root labels ${choice}"
+	break
+    fi
+
+    thissuffix=${choice##${prefix}}
+
+    if [ "${thissuffix}" -ge "${suffix}" ] ; then  # Only consider higher numbers
+	if [ -b $choice ] ; then
+	    echo "Found $choice is valid block device, candidate for ROOT"
+	    sleep 1
+	    NEWROOT=$choice
+
+	fi
+    else
+	echo "ignoring $choice suffix is lower"
+    fi
+done
+
+
+echo "NEWROOT=$NEWROOT"
+if [ -z "$NEWROOT" ] ; then
+    echo  "No new root was discovered, we will allow old style boot to continue"
+else
+    echo "Selected ${NEWROOT} as root"
+    echo "write ROOT=\"${NEWROOT}\" to /conf/param.conf"
+    echo "ROOT=\"${NEWROOT}\"" > /conf/param.conf  ### not we don't concat, we overwrite ... two ROOT stops boot
+    echo "here is /conf/param.conf"
+    cat /conf/param.conf
+fi
+exit 0
+
+

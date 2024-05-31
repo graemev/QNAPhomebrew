@@ -1,0 +1,12 @@
+[Unit]
+Description=A daemon which monitors disks and spins down idle drives
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/QNAP_manage_disks sda sdb sdc sdd
+Restart=on-failure
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=multi-user.target

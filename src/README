@@ -1,0 +1,45 @@
+Hacked out of the source of hdparm(8)
+
+From logs of version 0.4 ... note the start time of Between is getting an hour ealier each day (a classic out-by-one error)  ..setting is 24 but we are doing only 23 samples
+
+0 matches for "QNAP" in buffer: syslog                                                                                                                                
+    606:2024-04-07T06:05:44.187324+01:00 ts412 QNAP_manage_disks[1443]: Between 2024-04-06-07:05:27+0100   and 2024-04-07-06:05:44+0100   24 samples:                  
+    607:2024-04-07T06:05:44.190237+01:00 ts412 QNAP_manage_disks[1443]:  sda stopped 5 times Temp 21C-34C Last spundown @ 2024-04-06-23:05:40+0100                     
+    608:2024-04-07T06:05:44.191584+01:00 ts412 QNAP_manage_disks[1443]:  sdb stopped 6 times Temp 20C-32C Last spundown @ 2024-04-06-23:05:40+0100                     
+    609:2024-04-07T06:05:44.192784+01:00 ts412 QNAP_manage_disks[1443]:  sdc stopped 5 times Temp 29C-42C Last spundown @ 2024-04-06-23:05:40+0100                     
+    610:2024-04-07T06:05:44.193838+01:00 ts412 QNAP_manage_disks[1443]:  sdd stopped 6 times Temp 22C-32C Last spundown @ 2024-04-06-23:05:40+0100                     
+
+  21816:2024-04-08T05:05:58.570791+01:00 ts412 QNAP_manage_disks[1443]: Between 2024-04-07-06:05:44+0100   and 2024-04-08-05:05:58+0100   24 samples:                  
+  21817:2024-04-08T05:05:58.577450+01:00 ts412 QNAP_manage_disks[1443]:  sda stopped 5 times Temp 21C-34C Last spundown @ 2024-04-07-23:05:55+0100                     
+  21818:2024-04-08T05:05:58.578610+01:00 ts412 QNAP_manage_disks[1443]:  sdb stopped 4 times Temp 20C-31C Last spundown @ 2024-04-07-23:05:55+0100                     
+  21819:2024-04-08T05:05:58.579702+01:00 ts412 QNAP_manage_disks[1443]:  sdc stopped 4 times Temp 29C-42C Last spundown @ 2024-04-07-23:05:55+0100                     
+  21820:2024-04-08T05:05:58.580901+01:00 ts412 QNAP_manage_disks[1443]:  sdd stopped 5 times Temp 22C-32C Last spundown @ 2024-04-07-23:05:55+0100                     
+
+  24631:2024-04-09T04:06:34.699106+01:00 ts412 QNAP_manage_disks[1443]: Between 2024-04-08-05:05:58+0100   and 2024-04-09-04:06:34+0100   24 samples:                  
+  24632:2024-04-09T04:06:34.708053+01:00 ts412 QNAP_manage_disks[1443]:  sda stopped 5 times Temp 21C-34C Last spundown @ 2024-04-08-23:06:21+0100                     
+  24633:2024-04-09T04:06:34.709368+01:00 ts412 QNAP_manage_disks[1443]:  sdb stopped 6 times Temp 20C-32C Last spundown @ 2024-04-08-23:06:21+0100                     
+  24634:2024-04-09T04:06:34.712318+01:00 ts412 QNAP_manage_disks[1443]:  sdc stopped 5 times Temp 29C-42C Last spundown @ 2024-04-08-23:06:21+0100                     
+  24635:2024-04-09T04:06:34.713483+01:00 ts412 QNAP_manage_disks[1443]:  sdd stopped 7 times Temp 0C-32C Last spundown @ 2024-04-09-02:06:33+0100                      
+
+  55842:2024-04-10T03:07:06.560859+01:00 ts412 QNAP_manage_disks[1443]: Between 2024-04-09-04:06:34+0100   and 2024-04-10-03:07:05+0100   24 samples:                  
+  55843:2024-04-10T03:07:06.567806+01:00 ts412 QNAP_manage_disks[1443]:  sda stopped 4 times Temp 0C-35C Last spundown @ 2024-04-10-03:07:05+0100                      
+  55844:2024-04-10T03:07:06.569629+01:00 ts412 QNAP_manage_disks[1443]:  sdb stopped 3 times Temp 20C-33C Last spundown @ 2024-04-09-23:06:40+0100                     
+  55845:2024-04-10T03:07:06.570784+01:00 ts412 QNAP_manage_disks[1443]:  sdc stopped 2 times Temp 29C-43C Last spundown @ 2024-04-09-23:06:40+0100                     
+  55846:2024-04-10T03:07:06.571876+01:00 ts412 QNAP_manage_disks[1443]:  sdd stopped 3 times Temp 21C-32C Last spundown @ 2024-04-09-23:06:40+0100                     
+   
+
+From version 1.0 logs:
+
+ 303319:2024-05-29T18:19:42.895536+01:00 ts412 QNAP_manage_disks[1425]: Between 2024-05-28-18:19:25+0100   and 2024-05-29-18:19:42+0100   25 samples:             
+ 303320:2024-05-29T18:19:42.909793+01:00 ts412 QNAP_manage_disks[1425]: sda was asleep 10 times stopped 2 times Temp 20C-32C Last spundown @ 2024-05-29-10:19:39+$
+ 303321:2024-05-29T18:19:42.911164+01:00 ts412 QNAP_manage_disks[1425]: sdb was asleep 9 times stopped 2 times Temp 19C-29C Last spundown @ 2024-05-29-10:19:39+0$
+ 303322:2024-05-29T18:19:42.912285+01:00 ts412 QNAP_manage_disks[1425]: sdc was asleep 10 times stopped 2 times Temp 28C-40C Last spundown @ 2024-05-29-10:19:39+$
+ 303323:2024-05-29T18:19:42.913485+01:00 ts412 QNAP_manage_disks[1425]: sdd was asleep 9 times stopped 3 times Temp 0C-30C Last spundown @ 2024-05-29-10:19:39+01$
+
+ 306238:2024-05-30T18:19:52.034747+01:00 ts412 QNAP_manage_disks[1425]: Between 2024-05-29-18:19:42+0100   and 2024-05-30-18:19:51+0100   25 samples:             
+ 306239:2024-05-30T18:19:52.049408+01:00 ts412 QNAP_manage_disks[1425]: sda was asleep 10 times stopped 2 times Temp 21C-33C Last spundown @ 2024-05-30-17:19:49+$
+ 306240:2024-05-30T18:19:52.054649+01:00 ts412 QNAP_manage_disks[1425]: sdb was asleep 10 times stopped 2 times Temp 19C-30C Last spundown @ 2024-05-30-17:19:49+$
+ 306241:2024-05-30T18:19:52.055919+01:00 ts412 QNAP_manage_disks[1425]: sdc was asleep 10 times stopped 3 times Temp 28C-41C Last spundown @ 2024-05-30-17:19:49+$
+ 306242:2024-05-30T18:19:52.057308+01:00 ts412 QNAP_manage_disks[1425]: sdd was asleep 10 times stopped 4 times Temp 21C-31C Last spundown @ 2024-05-30-17:19:49+$
+
+So for sda and sdb this suggests 2 periods of disk use (I'd suggest Human use and Cron/backup use) with 10 hours of no disk activity at all.
