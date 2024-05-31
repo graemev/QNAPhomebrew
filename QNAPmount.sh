@@ -102,7 +102,7 @@ do_nonraid rest3 ${REST3}
 do_nonraid rest4 ${REST4}
 
 # Actually its is in the usual place, fought long and hard to keep mdadm(8) stuff off initrd
-# Gave up , now it gets assemebed on initrd (slowing boot and meaning you need to reflash
+# Gave up , now it gets assembled on initrd (slowing boot and meaning you need to reflash
 # more frequently. (/etc/mdadm/mdadm.conf)
 # Not in the usual place (we don't want this visible at boot)
 # mdadm  --assemble --scan --config /etc/QNAP-mdadm.conf
