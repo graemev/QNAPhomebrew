@@ -80,6 +80,7 @@ install:	ALL install_service install_man $(SUBDIRS)
 
 install_service:
 	install	-m444	$(SERVICES) $(SYSTEMD)
+	systemctl daemon-reload
 
 install_man:
 	install	-D -m644 -t $(MAN1DIR)			$(MAN1)	   
