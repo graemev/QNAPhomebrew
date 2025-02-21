@@ -1,7 +1,10 @@
 #! /bin/bash -ue
 
-# 27Sep23 Inital Version
 
+
+
+# GPV 27Sep23 Inital Version
+# GPV 21Feb25 Force unmount of other flavours of OUR mount, otherwise it becomes read-only and so rsync(1) fails
 
 VERSION="1.0"
 
@@ -115,6 +118,25 @@ USAGE:
 
 EOF
 }
+
+
+#
+# Ensure other mounts of this fileystem are dropped.
+#
+AKA() {
+    dev="$1"
+    while read mount akadev fstype options 
+    do
+	rc=$?
+
+	if [[ ${rc} -eq 0 ]] ; then
+	    echo "$dev is already mounted as $mount [ $akadev ] ... umount forced" >&2
+	    umount -f ${mount}
+	fi
+    done < <(findmnt -n ${dev})
+}
+
+
 
 typeset -i version
 typeset -i verbose
@@ -256,18 +278,6 @@ else
     read reply
 fi
       
-# These SHOULD fail, but just in case they were left over from a previous run
-set +e
-umount -q /run/QNAPHomebrew/boot
-umount -q /run/QNAPHomebrew/root
-umount -q /run/QNAPHomebrew/var
-umount -q /run/QNAPHomebrew/home
-set -e
-
-mount /dev/disk/by-label/boot${b} /run/QNAPHomebrew/boot
-mount /dev/disk/by-label/root${b} /run/QNAPHomebrew/root
-mount /dev/disk/by-label/var${b}  /run/QNAPHomebrew/var
-mount /dev/disk/by-label/home${b} /run/QNAPHomebrew/home
 
 
 cd /var/log/QNAPHomebrew
@@ -283,6 +293,12 @@ d=BOOT    # Don't make sparse files, do delete files not in source
 from=/boot/.
 to=/run/QNAPHomebrew/boot
 
+set +e
+umount -q /run/QNAPHomebrew/boot
+AKA   "/dev/disk/by-label/boot${b} /run/QNAPHomebrew/boot"
+mount /dev/disk/by-label/boot${b} /run/QNAPHomebrew/boot
+set -e
+
 rsync -aHAX --one-file-system --log-file=QNAP_clone.${d}.${b}.log  --super  --delete  ${from}  ${to} 2>QNAP_clone.${d}.${b}.errs
 echo "$d Cloned from ${ourbootnumber} using [$PROG $CMD] at $(date)" > ${to}/@CLONED
 
@@ -293,6 +309,17 @@ echo "$d Cloned from ${ourbootnumber} using [$PROG $CMD] at $(date)" > ${to}/@CL
 if [[ ${verbose} -gt 0 ]] ; then
     echo -e "\n\nROOT:"
 fi
+
+
+
+set +e
+# These SHOULD fail, but just in case they were left over from a previous run
+umount -q "/dev/disk/by-label/root${b}"
+# If fileystems is mounted elsewhere, it causes our mount to be read-only and so rsync fails
+AKA   "/dev/disk/by-label/bootfs${b}"
+mount /dev/disk/by-label/root${b} /run/QNAPHomebrew/root
+set -e
+
 
 d=ROOT    # Make sparse files, do delete files not in source
 from=/.
@@ -317,6 +344,11 @@ if [[ ${verbose} -gt 0 ]] ; then
     echo -e "\n\nVAR:"
 fi
 
+set +e
+umount -q /run/QNAPHomebrew/var
+AKA   "/dev/disk/by-label/var${b}"
+mount /dev/disk/by-label/var${b}  /run/QNAPHomebrew/var
+set -e
 
 d=VAR    # Make sparse files, Don't copy /var/log, do delete files not in source, but don't delete excluded files (/var/log should remain)
 from=/var/.
@@ -332,6 +364,12 @@ echo "$d Cloned from ${ourbootnumber} using [$PROG $CMD] at $(date)" > ${to}/@CL
 if [[ ${verbose} -gt 0 ]] ; then
     echo -e "\n\nHOME:"
 fi
+
+set +e
+umount -q /run/QNAPHomebrew/home
+AKA   "/dev/disk/by-label/home${b}"
+mount /dev/disk/by-label/home${b} /run/QNAPHomebrew/home
+set -e
 
 d=HOME    # Make sparse files, do delete files not in source
 from=/home/.
