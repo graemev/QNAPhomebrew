@@ -62,12 +62,18 @@ options='-o rw,no_root_squash'
 function do_nonraid() {
     mount=$1; shift
 
-    mkdir -p /QNAP/mounts/${mount}
+    mkdir -p                           /QNAP/mounts/${mount}
+    umount                             /QNAP/mounts/${mount} 2> /dev/null
     mount /dev/disk/by-label/${mount}  /QNAP/mounts/${mount}
 
     for d in $@
     do
 	mkdir -p       /QNAP/mounts/${mount}/${d}  /${d}
+
+	# Strangely enough unmounting /foo TWICE rmoves any number of leftover bind mounts ?
+	umount   /${d} 2> /dev/null
+	umount   /${d} 2> /dev/null
+	
 	mount -o bind  /QNAP/mounts/${mount}/${d}  /${d}
 	ln -fs -T      /QNAP/mounts/${mount}/${d}  /share/${d}
 	exportfs      ${options}  "${export_flags}:/${d}"
@@ -77,12 +83,19 @@ function do_nonraid() {
 
 function do_raid() {
     mount=$1; shift
-    mkdir -p /QNAP/mounts/${mount}
-    mount /dev/${mount}  /QNAP/mounts/${mount}
+    mkdir -p                           /QNAP/mounts/${mount}
+
+    umount                             /QNAP/mounts/${mount} 2> /dev/null
+    mount /dev/${mount}                /QNAP/mounts/${mount}
     
     for d in $@
     do
 	mkdir -p       /QNAP/mounts/${mount}/${d}  /${d}
+
+	# Strangely enough unmounting /foo TWICE rmoves any number of leftover bind mounts ?
+	umount                                     /${d} 2> /dev/null
+	umount                                     /${d} 2> /dev/null
+	
 	mount -o bind  /QNAP/mounts/${mount}/${d}  /${d}
 	ln -fs -T      /QNAP/mounts/${mount}/${d}  /share/${d}
 	exportfs       ${options} "${export_flags}:/${d}"
