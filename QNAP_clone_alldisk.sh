@@ -2,6 +2,7 @@
 
 # 12Oct23 Inital Version
 
+PATH=/usr/local/bin:$PATH export PATH
 
 VERSION="1.0"
 

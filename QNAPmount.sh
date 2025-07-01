@@ -104,8 +104,8 @@ function do_raid() {
 
 REST1=""
 REST2="Public Backup"
-REST3="Multimedia Fastmedia"
-REST4="svn git Web USBUploads Recordings InternalAdmin Download"
+REST3="Multimedia"
+REST4="svn git Web USBUploads Recordings InternalAdmin Download Fastmedia"
 RAID0="homes"
 
 # Non-raid shares
